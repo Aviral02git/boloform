@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>v0.3.0 features replica (dummy data)</title>
+<style>
+  body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;background:#f7f6f5;margin:24px;color:#222}
+  .card{background:#fff;border:1px solid #e3e0de;border-radius:12px;padding:20px;max-width:460px;margin-bottom:16px}
+  .card h2{margin:0 0 10px;font-size:15px}
+  label{display:block;font-size:12px;color:#666;margin:10px 0 4px}
+  input,select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #c9c5c3;border-radius:8px;font-size:14px;background:#fff}
+  fieldset{border:1px solid #d9d5d4;border-radius:8px;margin:10px 0}
+  .step{display:none}.step.active{display:block}
+  #results{max-width:520px;font-size:13px}
+  #results .pass{color:#2f7a67}#results .fail{color:#b3261e;font-weight:600}
+  #results div{padding:2px 0}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>React-style controlled fields (native-setter test)</h2>
+  <label for="rname">Full name</label>
+  <input id="rname" type="text">
+  <label for="rcity">City</label>
+  <input id="rcity" type="text" style="outline:1px dashed #999">
+</div>
+
+<div class="card">
+  <h2>Radios + date + dropdown precision</h2>
+  <fieldset>
+    <legend>Gender</legend>
+    <input type="radio" name="g" id="gm" value="male"><label for="gm">Male</label>
+    <input type="radio" name="g" id="gf" value="female"><label for="gf">Female</label>
+  </fieldset>
+  <label for="ddob">Date of birth</label>
+  <input id="ddob" type="date">
+  <label for="dgen">Gender (dropdown, Female first)</label>
+  <select id="dgen"><option value="">Select</option><option value="f">Female</option><option value="m">Male</option></select>
+</div>
+
+<div class="card">
+  <h2>Autocomplete-only form (no labels at all)</h2>
+  <input id="a2" type="text" autocomplete="address-line1">
+  <input id="a3" type="text" autocomplete="address-line2">
+  <input id="a4" type="text" autocomplete="postal-code">
+  <input id="a6" type="text" autocomplete="tel">
+</div>
+
+<div class="card">
+  <h2>Floating-label style (Google Forms pattern)</h2>
+  <div role="listitem">
+    <div><div>Aapka occupation kya hai?</div></div>
+    <div><input id="q1" type="text"></div>
+  </div>
+  <div role="listitem">
+    <span id="albl">Landmark batao</span>
+    <div><input id="q2" type="text" aria-labelledby="albl"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Multi-step form</h2>
+  <div class="step active" id="step1">
+    <label for="s1name">Name</label><input id="s1name" type="text">
+    <button id="nextBtn">Next</button>
+    <form onsubmit="return false" style="display:inline"><button type="submit">Next</button></form>
+  </div>
+  <div class="step" id="step2">
+    <label for="s2city">City</label><input id="s2city" type="text">
+    <button type="button" id="cont1">Continue</button>
+    <button type="button" id="cont2">Continue</button>
+    <button type="button">Place order</button>
+    <button id="submitBtn">Submit</button>
+  </div>
+</div>
+
+<div id="results"></div>
+
+<script src="../parser.js"></script>
+<script src="../matcher.js"></script>
+<script src="../content.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('results');
+  var pass = 0, fail = 0;
+  function line(ok, name) {
+    var d = document.createElement('div');
+    d.className = ok ? 'pass' : 'fail';
+    d.textContent = (ok ? 'PASS: ' : 'FAIL: ') + name;
+    out.appendChild(d);
+    ok ? pass++ : fail++;
+  }
+  function summary() {
+    var sum = document.createElement('div');
+    sum.className = fail ? 'fail' : 'pass';
+    sum.style.marginTop = '10px'; sum.style.fontWeight = '700';
+    sum.textContent = 'DOM TEST: ' + pass + ' passed, ' + fail + ' failed';
+    out.appendChild(sum);
+    document.title = fail ? 'FAIL' : 'PASS';
+  }
+  function byId(id) { return document.getElementById(id); }
+  function setAndInput(el, v) { // Wispr/typing style entry into the PANEL
+    el.focus();
+    document.execCommand('insertText', false, v);
+  }
+
+  // React simulation: an own 'value' property that swallows plain assignment,
+  // exactly like React's value tracker rejecting external writes.
+  var protoDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  ['rname','rcity'].forEach(function (id) {
+    var el = byId(id);
+    Object.defineProperty(el, 'value', {
+      get: function () { return protoDesc.get.call(el); },
+      set: function () { /* framework swallows outside writes */ },
+      configurable: true
+    });
+  });
+
+  // ---- matcher-level checks ----
+  var plan = window.VFHMatcher.planFromTranscript('full name Rahul Sharma, city Rampur', document);
+  var nameItem = plan.items.find(function (i) { return i.key === 'name'; });
+  line(nameItem && nameItem.el === byId('rname'), 'react-form name field matched');
+  window.VFHMatcher.applyPlan(plan);
+  line(byId('rname').value === 'Rahul Sharma', 'native setter writes through the React-style tracker: "' + byId('rname').value + '"');
+  line(byId('rcity').value === 'Rampur', 'second react field written too');
+  line(byId('rcity').getAttribute('style').indexOf('dashed') === -1, 'highlight replaced inline style (saved for restore)');
+
+  // radios live, dropdown disabled -> the radio group serves gender
+  byId('dgen').disabled = true;
+  var planG = window.VFHMatcher.planFromTranscript('gender female', document);
+  var gItem = planG.items.find(function (i) { return i.key === 'gender' && i.isRadio; });
+  line(gItem && gItem.el === byId('gf'), 'gender female picks the Female radio, group "' + (gItem && gItem.fieldLabel) + '"');
+  line(planG.items.filter(function (i) { return i.key === 'gender'; }).length === 1, 'gender written to exactly one control');
+  window.VFHMatcher.applyPlan(planG);
+  line(byId('gf').checked === true && byId('gm').checked === false, 'Female radio clicked');
+  var planG2 = window.VFHMatcher.planFromTranscript('- Gender: male', document);
+  var g2 = planG2.items.find(function (i) { return i.key === 'gender'; });
+  line(g2 && g2.oldValue === 'Female', 'radio oldValue reports the previously checked option: "' + (g2 && g2.oldValue) + '"');
+  window.VFHMatcher.applyPlan(planG2);
+  line(byId('gm').checked === true, 'switching gender clicks Male radio');
+
+  // radios disabled, dropdown live (Female first) -> "male" must pick Male, never Female-by-substring
+  byId('gm').disabled = true; byId('gf').disabled = true;
+  byId('dgen').disabled = false;
+  var planS = window.VFHMatcher.planFromTranscript('gender male', document);
+  window.VFHMatcher.applyPlan(planS);
+  line(byId('dgen').value === 'm', 'findOption: "male" picks Male even when Female is listed first');
+  byId('gm').disabled = false; byId('gf').disabled = false;
+
+  var planD = window.VFHMatcher.planFromTranscript('date of birth 21/11/2001', document);
+  window.VFHMatcher.applyPlan(planD);
+  line(byId('ddob').value === '2001-11-21', 'date input gets YYYY-MM-DD: "' + byId('ddob').value + '"');
+
+  // ---- autocomplete-only form ----
+  var planA = window.VFHMatcher.planFromTranscript('- House: 2A-45\n- Street: Shanti Colony\n- Pincode: 148001\n- Phone: 9876501234', document);
+  window.VFHMatcher.applyPlan(planA);
+  line(byId('a2').value === '2A-45', 'autocomplete=address-line1 -> house');
+  line(byId('a3').value === 'Shanti Colony', 'autocomplete=address-line2 -> street');
+  line(byId('a4').value === '148001', 'autocomplete=postal-code -> pincode');
+  line(byId('a6').value === '9876501234', 'autocomplete=tel -> phone');
+
+  // ---- floating label + aria-labelledby (Google Forms pattern) ----
+  var planQ = window.VFHMatcher.planFromTranscript('- Occupation: Teacher\n- Landmark: near City Hospital', document);
+  var q1 = planQ.items.find(function (i) { return i.key === 'occupation'; });
+  line(q1 && q1.el === byId('q1'), 'floating question text matched as occupation label');
+  var q2 = planQ.items.find(function (i) { return i.key === 'landmark'; });
+  line(q2 && q2.el === byId('q2'), 'aria-labelledby landmark matched');
+  window.VFHMatcher.applyPlan(planQ);
+  line(byId('q1').value === 'Teacher' && byId('q2').value === 'near City Hospital', 'both floating-label fields filled');
+
+  window.VFHMatcher.clearHighlights(document);
+  line(byId('rcity').getAttribute('style').indexOf('dashed') !== -1, 'clearHighlights restores the original inline style');
+
+  // ---- panel flow: voice confirm / undo / agla step / closed shadow ----
+  byId('rname').disabled = true; byId('rcity').disabled = true; // their segment is done; free the 'name'/'city' keys
+  window.dispatchEvent(new Event('vfh:toggle'));
+  var hostEl = document.getElementById('vfh-host');
+  line(!!hostEl && hostEl.shadowRoot === null && !!window.__vfhShadow, 'closed shadow root: page scripts cannot read the transcript');
+  var sh = window.__vfhShadow;
+  var title = sh.querySelector('.vfh-title');
+  line(title && title.textContent.indexOf('BoloForm') !== -1 && /v0\.3\.0/.test(title.textContent), 'panel branded BoloForm v0.3.0: "' + title.textContent + '"');
+  var ta = sh.querySelector('textarea');
+
+  byId('s1name').value = 'Purana Naam';
+  setAndInput(ta, 'name me Rahul Sharma bhar do');
+  var fillBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Form bharo'; });
+  fillBtn.click();
+  line(!!sh.querySelector('.vfh-plan-h'), 'preview shown');
+  line(byId('s1name').value === 'Purana Naam', 'preview wrote nothing');
+  setAndInput(ta, 'Sahi hai.'); // voice confirm, with Wispr-style punctuation
+  line(byId('s1name').value === 'Rahul Sharma', 'voice "Sahi hai." applies the plan');
+  line(ta.value === '', 'textarea cleared after voice confirm');
+  var undoBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent.indexOf('wapas') !== -1; });
+  line(!!undoBtn, 'undo button offered after apply');
+  setAndInput(ta, 'wapas');
+  line(byId('s1name').value === 'Purana Naam', 'voice "wapas" undoes the fill');
+
+  // next-step button: after a fill on step 1, "Agla step" clicks the site's Next
+  setAndInput(ta, 'name me Rahul Sharma bhar do');
+  fillBtn.click();
+  var confirmBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Sahi hai, bharo'; });
+  confirmBtn.click();
+  var nextOffer = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent.indexOf('Agla step') !== -1; });
+  line(!!nextOffer, 'Agla step offered after filling a multi-step form step');
+  line(nextOffer && nextOffer.textContent.indexOf('"Next"') !== -1, 'submit-type "Next" decoy ignored, plain Next chosen: ' + (nextOffer && nextOffer.textContent));
+  // undo must not clobber a value the user edited after the fill
+  byId('s1name').focus(); document.execCommand('selectAll'); document.execCommand('insertText', false, 'User Ka Naam');
+  var undoBtn2 = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent.indexOf('Sab wapas karo') !== -1; });
+  undoBtn2.click();
+  line(byId('s1name').value === 'User Ka Naam', 'undo keeps the field the user edited after the fill');
+  var keptNote = Array.prototype.find.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('nahi chheda') !== -1; });
+  line(!!keptNote, 'undo reports the skipped field: "' + (keptNote && keptNote.textContent.slice(0, 90)) + '"');
+
+  document.getElementById('nextBtn').addEventListener('click', function () {
+    byId('step1').classList.remove('active'); byId('step2').classList.add('active');
+  });
+  nextOffer.click();
+  line(byId('step2').classList.contains('active'), 'Agla step advanced the form to step 2');
+  line(ta.value === '', 'textarea ready for the next step dictation');
+
+  // voice cancel
+  setAndInput(ta, 'city me Rampur bhar do');
+  fillBtn.click();
+  setAndInput(ta, 'Cancel.');
+  line(byId('s2city').value === '', 'voice "Cancel." writes nothing');
+  line(ta.value.indexOf('Cancel') === -1 && ta.value.indexOf('city me Rampur') !== -1, 'cancel keeps the transcript, drops the command');
+
+  // stale preview + substring safety: narration that merely contains a command word must not apply
+  ta.value = '';
+  setAndInput(ta, 'city me Rampur bhar do');
+  fillBtn.click();
+  line(!!sh.querySelector('.vfh-plan-h'), 'preview shown again for city');
+  setAndInput(ta, ' sahi hai kya');
+  line(byId('s2city').value === '', 'narration containing "sahi hai" does NOT apply');
+  var staleNote = Array.prototype.find.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('preview radd') !== -1; });
+  line(!!staleNote, 'editing the transcript invalidates the stale preview');
+  setAndInput(ta, 'sahi hai');
+  line(byId('s2city').value === '', 'no stale plan applies after invalidation');
+
+  // streaming tolerance: half a command waits, completing it applies
+  ta.value = '';
+  setAndInput(ta, 'city me Rampur bhar do');
+  fillBtn.click();
+  setAndInput(ta, 'sah');
+  line(!!sh.querySelector('.vfh-plan-h'), 'partial command "sah" does not invalidate the preview');
+  setAndInput(ta, 'i hai.');
+  line(byId('s2city').value === 'Rampur', 'completing "sahi hai." applies the plan');
+
+  // ambiguity: two visible "Continue" buttons -> no offer (and "Place order" is never offered)
+  var offer2 = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent.indexOf('Agla step') !== -1; });
+  line(!offer2, 'two visible "Continue" buttons = ambiguous, no Agla step offered (Place order never eligible)');
+
+  summary();
+})();
+</script>
+</body>
+</html>
