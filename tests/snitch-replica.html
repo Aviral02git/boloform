@@ -27,7 +27,7 @@
   <label for="rstate">State</label><input id="rstate" type="text" value="Punjab" readonly>
   <input type="text" placeholder="Name" aria-label="Name">
   <label>Phone</label>
-  <div class="phone"><span class="cc">+91</span><input type="text" placeholder="1234567890"></div>
+  <span class="cc">+91</span><input type="text" placeholder="1234567890" id="phonein">
 </div>
 <div id="results"></div>
 
@@ -58,7 +58,7 @@
   function inp(ph) { return document.querySelector('input[placeholder="' + ph + '"]'); }
   var house = inp('House / Flat No / Apartment Name'), street = inp('Street / Area'),
       pin = inp('Pincode'), name = inp('Name'),
-      tel = document.querySelector('.phone input'),
+      tel = document.getElementById('phonein'),
       city = document.getElementById('rcity');
 
   var TRANSCRIPT = '- House flat number apartment name \u092e\u0947\u0902 2A Block 45 \u092d\u0930\u094b\n- Street area \u092e\u0947\u0902 Shanti \u0915\u093e Colony\n- Pin code \u092e\u0947\u0902 148001\n- City Rampura\n- State \u092e\u0947\u0902 Punjab\n- Name \u092e\u0947\u0902 Rahul Sharma\n- Phone number \u092e\u0947\u0902 9876501234';
@@ -84,6 +84,15 @@
   line(house.value === '2A Block 45', 'house field holds directed house value, got "' + house.value + '"');
   line(street.value === 'Shanti \u0915\u093e Colony', 'street field holds full value, got "' + street.value + '"');
   line(pin.value === '148001', 'pincode filled');
+  line(phoneItem.el === tel, 'phone plans onto the phone input itself, not a neighbouring field');
+
+  // House ID separators survive exactly as dictated (dash or slash).
+  var planSep = window.VFHMatcher.planFromTranscript('- House number \u092e\u0942\u0902 \u092d\u0930\u094b: 2A/45', document);
+  var sepItem = planSep.items.find(function (i) { return i.key === 'house'; });
+  line(sepItem && sepItem.value === '2A/45', 'house ID keeps its slash: "' + (sepItem && sepItem.value) + '"');
+  var planDash = window.VFHMatcher.planFromTranscript('house 2A-45', document);
+  var dashItem = planDash.items.find(function (i) { return i.key === 'house'; });
+  line(dashItem && dashItem.value === '2A-45', 'house ID keeps its dash: "' + (dashItem && dashItem.value) + '"');
   line(tel.value === '9876501234', 'phone filled in +91 input, got "' + tel.value + '"');
   line(city.value === 'Ludhiana' && report.locked.length === 2, 'readonly City/State locked and skipped, locked=' + report.locked.length);
   var oldHouse = report.filled.find(function (f) { return f.key === 'house'; });
@@ -104,7 +113,7 @@
   if (!hostEl) { summary(); return; }
   var sh = hostEl.shadowRoot;
   var title = sh.querySelector('.vfh-title');
-  line(title && /v0\.2\.0/.test(title.textContent), 'panel shows running version marker: "' + (title && title.textContent) + '"');
+  line(title && /v0\.2\.1/.test(title.textContent), 'panel shows running version marker: "' + (title && title.textContent) + '"');
   var ta = sh.querySelector('textarea');
   ta.value = 'Phone number \u092e\u0947\u0902 9876501234';
   house.value = ''; street.value = ''; pin.value = ''; name.value = ''; tel.value = '';
