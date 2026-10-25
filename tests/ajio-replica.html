@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AJIO-style modal focus-trap replica (dummy data)</title>
+<style>
+  body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;background:#f7f6f5;margin:24px;color:#222}
+  .card{background:#fff;border:1px solid #e3e0de;border-radius:12px;padding:20px;max-width:420px}
+  .card h2{margin:0 0 14px;font-size:17px}
+  label{display:block;font-size:12px;color:#666;margin:12px 0 4px}
+  input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #c9c5c3;border-radius:8px;font-size:14px}
+  /* right-drawer modal like AJIO's Add new address */
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none}
+  #drawer{position:fixed;top:0;right:0;bottom:0;width:340px;background:#fff;display:none;
+          box-shadow:-4px 0 18px rgba(0,0,0,.2);padding:18px;z-index:1000;overflow-y:auto}
+  #results{max-width:460px;margin-top:22px;font-size:13px}
+  #results .pass{color:#2f7a67}#results .fail{color:#b3261e;font-weight:600}
+  #results div{padding:2px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Address Book</h2>
+  <button id="openDrawer">Add new address</button>
+  <button id="openNative">Add new address (native dialog)</button>
+</div>
+
+<div id="overlay"></div>
+<div id="drawer" role="dialog" aria-modal="true" aria-label="Add new address">
+  <h3>Add new address</h3>
+  <label for="dname">Name*</label><input id="dname" type="text">
+  <label for="dmobile">Mobile*</label><input id="dmobile" type="text">
+  <label for="dpin">Pin Code*</label><input id="dpin" type="text">
+  <label for="dstreet">Locality / Area / Street*</label><input id="dstreet" type="text">
+  <label for="dhouse">Flat number / Building Name*</label><input id="dhouse" type="text">
+  <label for="dland">Landmark*</label><input id="dland" type="text">
+  <label for="dcity">District/City*</label><input id="dcity" type="text">
+  <label for="dstate">State*</label><input id="dstate" type="text">
+</div>
+
+<dialog id="nativeDlg" style="width:320px">
+  <h3>Add new address</h3>
+  <label for="nname">Name*</label><input id="nname" type="text">
+  <label for="ncity">District/City*</label><input id="ncity" type="text">
+</dialog>
+
+<div id="results"></div>
+
+<script src="../parser.js"></script>
+<script src="../matcher.js"></script>
+<script src="../content.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('results');
+  var pass = 0, fail = 0;
+  function line(ok, name) {
+    var d = document.createElement('div');
+    d.className = ok ? 'pass' : 'fail';
+    d.textContent = (ok ? 'PASS: ' : 'FAIL: ') + name;
+    out.appendChild(d);
+    ok ? pass++ : fail++;
+  }
+  function summary() {
+    var sum = document.createElement('div');
+    sum.className = fail ? 'fail' : 'pass';
+    sum.style.marginTop = '10px';
+    sum.style.fontWeight = '700';
+    sum.textContent = 'DOM TEST: ' + pass + ' passed, ' + fail + ' failed';
+    out.appendChild(sum);
+    document.title = fail ? 'FAIL' : 'PASS';
+  }
+
+  // ---- JS focus-trap drawer (the common React pattern): focusin outside the
+  // drawer is yanked back inside; outside mousedown would close it. ----
+  var drawer = document.getElementById('drawer');
+  var overlay = document.getElementById('overlay');
+  var trapFires = 0, outsideClicks = 0, docKeys = 0;
+  function trapFocus(e) {
+    if (drawer.style.display !== 'block') return;
+    if (!drawer.contains(e.target)) { trapFires++; document.getElementById('dname').focus(); }
+  }
+  document.addEventListener('focusin', trapFocus);
+  document.addEventListener('mousedown', function (e) {
+    if (drawer.style.display === 'block' && !drawer.contains(e.target)) outsideClicks++;
+  });
+  document.addEventListener('keydown', function () { docKeys++; });
+
+  document.getElementById('openDrawer').click = null;
+  drawer.style.display = 'block';
+  overlay.style.display = 'block';
+
+  // ---- open the panel exactly like the toolbar click does ----
+  window.dispatchEvent(new Event('vfh:toggle'));
+  var hostEl = document.getElementById('vfh-host');
+  line(!!hostEl && !!hostEl.shadowRoot, 'panel injects while the drawer modal is open');
+  if (!hostEl) { summary(); return; }
+  var sh = hostEl.shadowRoot;
+  line(hostEl.matches(':popover-open'), 'panel host is in the top layer (popover open)');
+
+  var ta = sh.querySelector('textarea');
+  ta.focus();
+  line(document.activeElement === hostEl && sh.activeElement === ta,
+    'capture textarea takes focus despite the drawer focus trap');
+  ta.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+  line(trapFires === 0, 'site focus trap never saw the panel focus (trapFires=' + trapFires + ')');
+
+  // a real key event path: keydown inside the panel must not reach page handlers
+  ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, composed: true, cancelable: true }));
+  line(docKeys === 0, 'site keydown handler never saw panel typing (docKeys=' + docKeys + ')');
+  // text entry itself (insertText, the path real typing/IME/dictation uses)
+  document.execCommand('insertText', false, 'name me Rahul Sharma bhar do');
+  line(ta.value === 'name me Rahul Sharma bhar do', 'textarea accepts text entry while trap is armed: "' + ta.value + '"');
+
+  // clicking a panel button must not count as an outside click for the modal
+  var fillBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Form bharo'; });
+  fillBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true }));
+  line(outsideClicks === 0, 'site outside-click watcher never saw the panel click (outsideClicks=' + outsideClicks + ')');
+
+  // end-to-end against the drawer fields: preview, then approved write
+  fillBtn.click();
+  var previewHead = sh.querySelector('.vfh-plan-h');
+  line(!!previewHead, 'preview renders while drawer is open');
+  var confirmBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Sahi hai, bharo'; });
+  line(!!confirmBtn, 'confirm button present');
+  confirmBtn.click();
+  line(document.getElementById('dname').value === 'Rahul Sharma', 'drawer Name field filled after approval: "' + document.getElementById('dname').value + '"');
+
+  // ---- native <dialog> showModal: everything else is inert, top layer escapes ----
+  drawer.style.display = 'none';
+  overlay.style.display = 'none';
+  document.removeEventListener('focusin', trapFocus);
+  window.dispatchEvent(new Event('vfh:toggle')); // close panel
+  var dlg = document.getElementById('nativeDlg');
+  dlg.showModal();
+  window.dispatchEvent(new Event('vfh:toggle')); // reopen panel on top of native dialog
+  hostEl = document.getElementById('vfh-host');
+  var sh2 = hostEl.shadowRoot;
+  var ta2 = sh2.querySelector('textarea');
+  ta2.focus();
+  line(document.activeElement === hostEl && sh2.activeElement === ta2,
+    'textarea focusable while a NATIVE modal dialog is open (inert escaped)');
+  document.execCommand('insertText', false, 'city Rampur');
+  line(ta2.value === 'city Rampur', 'text entry works on top of the native dialog: "' + ta2.value + '"');
+  var fillBtn2 = Array.prototype.find.call(sh2.querySelectorAll('button'), function (b) { return b.textContent === 'Form bharo'; });
+  fillBtn2.click();
+  var confirmBtn2 = Array.prototype.find.call(sh2.querySelectorAll('button'), function (b) { return b.textContent === 'Sahi hai, bharo'; });
+  confirmBtn2.click();
+  line(document.getElementById('ncity').value === 'Rampur', 'native dialog City field filled: "' + document.getElementById('ncity').value + '"');
+  dlg.close();
+
+  summary();
+})();
+</script>
+</body>
+</html>
