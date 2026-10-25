@@ -91,6 +91,26 @@
 
     var EDGE_LABEL_WORDS = ['naam', 'नाम'];
 
+    // Words that only ever name a field, built from every alias. Used to drop
+    // a leading run of dictated label words from a value - interior words are
+    // never touched, so real address text keeps "colony", "apartment" etc.
+    var LABEL_VOCAB = {};
+    FIELDS.forEach(function (f) {
+        f.aliases.forEach(function (a) {
+            a.toLowerCase().split(/[^\p{L}\p{N}]+/u).forEach(function (w) {
+                if (w) LABEL_VOCAB[w] = 1;
+            });
+        });
+    });
+
+    function isLabelToken(tok) {
+        var subs = tok.toLowerCase().split(/[\/\-]/);
+        for (var i = 0; i < subs.length; i++) {
+            if (!subs[i] || !LABEL_VOCAB[subs[i]]) return false;
+        }
+        return true;
+    }
+
     function cleanValue(raw, matchedAlias) {
         var escA = matchedAlias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+');
         var s = raw.replace(new RegExp('\\b' + escA + '\\b', 'i'), ' ');
@@ -125,6 +145,15 @@
         while (tokens.length) {
             var last = tokens[tokens.length - 1].toLowerCase();
             if (STOP_TOKENS.indexOf(last) !== -1) tokens.pop(); else break;
+        }
+        // A disfluent or composite dictated label ("house flat number/apartment
+        // number 2A-45") leaves label words in front of the real value. Drop the
+        // leading label-word run only when a real value clearly follows (a digit
+        // or at least two label words) - "Colony Road" stays whole.
+        var run = 0;
+        while (run < tokens.length && isLabelToken(tokens[run])) run++;
+        if (run > 0 && tokens.length > run && (run >= 2 || /\d/.test(tokens[run]))) {
+            tokens = tokens.slice(run);
         }
         return collapse(tokens.join(' ').replace(/\s*([.,/@])\s*/g, '$1'));
     }
