@@ -97,8 +97,9 @@
         if (s === raw) s = raw.replace(new RegExp(escA, 'i'), ' ');
         s = stripVerbs(s);
         s = s.replace(/[:=]+/g, ' ');
-        // Strip dashes/slashes only when not between digits (keep dates and numbers intact).
-        s = s.replace(/(?<!\d)[\/\-]|[\/\-](?!\d)/g, ' ');
+        // Strip dashes/slashes only when not between identifier characters -
+        // keep dates ("21/11/2001") and house/flat IDs ("2A/45", "2A-45") intact.
+        s = s.replace(/(?<![A-Za-z0-9])[\/\-]|[\/\-](?![A-Za-z0-9])/g, ' ');
         // Directed commands put the label first, then "mein <value>": keep only
         // the part after the last connector when the front still looks label-ish
         // ("... apartment name me 2A Block 45 bharo" -> "2A Block 45").
