@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Amazon-style add-address replica (dummy data)</title>
+<style>
+  body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;background:#f7f6f5;margin:24px;color:#222}
+  .card{background:#fff;border:1px solid #e3e0de;border-radius:12px;padding:20px;max-width:420px}
+  .card h2{margin:0 0 14px;font-size:17px}
+  label{display:block;font-size:12px;color:#666;margin:12px 0 4px}
+  input,select{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #c9c5c3;border-radius:8px;font-size:14px;background:#fff}
+  #results{max-width:460px;margin-top:22px;font-size:13px}
+  #results .pass{color:#2f7a67}#results .fail{color:#b3261e;font-weight:600}
+  #results div{padding:2px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Add a new address</h2>
+  <label for="acountry">Country/Region</label>
+  <select id="acountry" name="address-ui-widgets-enterAddressCountryCode">
+    <option value="">Select</option><option value="IN">India</option><option value="US">United States</option>
+  </select>
+  <label for="aname">Full name (First and Last name)</label>
+  <input id="aname" type="text" name="address-ui-widgets-enterAddressFullName">
+  <label for="aphone">Mobile number</label>
+  <input id="aphone" type="text" name="address-ui-widgets-enterAddressPhoneNumber" placeholder="10-digit mobile number">
+  <label for="apin">Pincode</label>
+  <input id="apin" type="text" name="address-ui-widgets-enterAddressPostalCode" placeholder="6 digits [0-9] PIN code">
+  <label for="ahouse">Flat, House no., Building, Company, Apartment</label>
+  <input id="ahouse" type="text" name="address-ui-widgets-enterAddressLine1">
+  <label for="astreet">Area, Street, Sector, Village</label>
+  <input id="astreet" type="text" name="address-ui-widgets-enterAddressLine2">
+  <label for="aland">Landmark</label>
+  <input id="aland" type="text" placeholder="E.g. near apollo hospital" name="address-ui-widgets-landmark">
+  <label for="acity">Town/City</label>
+  <input id="acity" type="text" name="address-ui-widgets-enterAddressCity">
+  <label for="astate">State</label>
+  <select id="astate" name="address-ui-widgets-enterAddressStateOrRegion">
+    <option value="">Choose</option><option value="UP">UTTAR PRADESH</option><option value="PB">PUNJAB</option>
+  </select>
+</div>
+<div id="results"></div>
+
+<script src="../parser.js"></script>
+<script src="../matcher.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('results');
+  var pass = 0, fail = 0;
+  function line(ok, name) {
+    var d = document.createElement('div');
+    d.className = ok ? 'pass' : 'fail';
+    d.textContent = (ok ? 'PASS: ' : 'FAIL: ') + name;
+    out.appendChild(d);
+    ok ? pass++ : fail++;
+  }
+  function summary() {
+    var sum = document.createElement('div');
+    sum.className = fail ? 'fail' : 'pass';
+    sum.style.marginTop = '10px';
+    sum.style.fontWeight = '700';
+    sum.textContent = 'DOM TEST: ' + pass + ' passed, ' + fail + ' failed';
+    out.appendChild(sum);
+    document.title = fail ? 'FAIL' : 'PASS';
+  }
+  function byId(id) { return document.getElementById(id); }
+
+  var M = '\u092E\u0947\u0902', D = '\u0921\u093E\u0932\u0928\u093E';
+  var TRANSCRIPT =
+    '- Street ' + M + ' Shanti \u0915\u093E Colony ' + D + '\n' +
+    '- Land block ' + M + ' near City Hospital ' + D + '\n' +
+    '- Town/city ' + M + ' Rampur ' + D + '\n' +
+    '- State ' + M + ' Uttar Pradesh ' + D + '\n' +
+    '- Country ' + M + ' India ' + D + '\n' +
+    '- Name ' + M + ' Rahul Sharma ' + D + '\n' +
+    '- House flat ' + M + ' 2A-45 ' + D + '\n' +
+    '- Pincode ' + M + ' 148001\n' +
+    '- Phone ' + M + ' 9876501234';
+
+  // --- Plan stage: nothing written, every field maps to its own box ---
+  var plan = window.VFHMatcher.planFromTranscript(TRANSCRIPT, document);
+  line(byId('aname').value === '' && byId('ahouse').value === '' && byId('acountry').value === '', 'plan stage writes nothing');
+  function item(k) { return plan.items.find(function (i) { return i.key === k; }); }
+  var nameIt = item('name');
+  line(nameIt && nameIt.status === 'write' && nameIt.el === byId('aname'),
+    'name maps to "Full name (First and Last name)" despite address-ui-widgets id, status=' + (nameIt && nameIt.status));
+  line(item('country') && item('country').status === 'write' && item('country').el === byId('acountry'), 'country maps to the Country/Region dropdown');
+  line(item('state') && item('state').status === 'write' && item('state').el === byId('astate'), 'state maps to the State dropdown');
+  line(item('city') && item('city').value === 'Rampur', 'compound Town/city label leaves a clean city value: "' + (item('city') && item('city').value) + '"');
+  line(item('house') && item('house').el === byId('ahouse') && item('house').value === '2A-45', 'house keeps its dash on the Flat/House no. field');
+  line(item('street') && item('street').el === byId('astreet') && item('street').value === 'Shanti \u0915\u093E Colony', 'street value intact on Area/Street field');
+  line(item('phone') && item('phone').el === byId('aphone'), 'phone maps to Mobile number');
+  line(item('pincode') && item('pincode').el === byId('apin'), 'pincode maps to Pincode');
+  line(!item('landmark'), 'uncertain "land block" is NOT planned as a write');
+  var lbAsk = plan.asks.find(function (a) { return a.key === 'landmark'; });
+  line(lbAsk && lbAsk.value === 'near City Hospital', '"land block" asks with the value for manual pick: "' + (lbAsk && lbAsk.value) + '"');
+
+  // --- Apply stage: approved writes land, selects included ---
+  var report = window.VFHMatcher.applyPlan(plan);
+  line(byId('aname').value === 'Rahul Sharma', 'name written to Full name field');
+  line(byId('acountry').value === 'IN', 'country dropdown set to India');
+  line(byId('astate').value === 'UP', 'state dropdown set to UTTAR PRADESH');
+  line(byId('acity').value === 'Rampur', 'city written without label prefix');
+  line(byId('ahouse').value === '2A-45', 'house written with dash');
+  line(byId('aland').value === '', 'landmark field untouched (awaiting manual pick)');
+
+  // --- Explicit landmark dictation fills the Landmark field, near-phrase intact ---
+  var plan2 = window.VFHMatcher.planFromTranscript('- Landmark ' + M + ' near City Hospital ' + D, document);
+  var landIt = plan2.items.find(function (i) { return i.key === 'landmark'; });
+  line(landIt && landIt.status === 'write' && landIt.el === byId('aland') && landIt.value === 'near City Hospital',
+    'explicit landmark label maps to the Landmark field, value="' + (landIt && landIt.value) + '"');
+  window.VFHMatcher.applyPlan(plan2);
+  line(byId('aland').value === 'near City Hospital', 'landmark written with near-phrase preserved');
+  window.VFHMatcher.clearHighlights(document);
+
+  summary();
+})();
+</script>
+</body>
+</html>
