@@ -121,5 +121,19 @@ check('house dash ID kept', fill(r,'house')==='2A-45');
 r = p.parse('street Omaxe-2 Colony');
 check('street hyphen kept', fill(r,'street')==='Omaxe-2 Colony');
 
+// --- regression: composite/disfluent dictated labels must not leak into values ---
+r = p.parse('- House flat number/apartment number: 2A-45');
+check('composite label slash, house clean', fill(r,'house')==='2A-45');
+r = p.parse('house flat apartment number 2-40');
+check('composite label spaces, house clean', fill(r,'house')==='2-40');
+r = p.parse('house flat house flat apartment number 2-40');
+check('repeated disfluent label, house clean', fill(r,'house')==='2-40');
+r = p.parse('street Colony Road');
+check('single label-ish word kept in value', fill(r,'street')==='Colony Road');
+r = p.parse('apartment 5B');
+check('label word before digit value stripped', fill(r,'house')==='5B');
+r = p.parse('house 5A Extension Road, behind park');
+check('real value with road words intact', fill(r,'house')==='5A Extension Road, behind park');
+
 console.log('TOTAL: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
