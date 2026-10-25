@@ -6,7 +6,7 @@
     if (window.__vfhLoaded) return;
     window.__vfhLoaded = true;
 
-    var VFH_VERSION = '0.2.3';
+    var VFH_VERSION = '0.2.4';
     var host = null;
     var pendingPick = null;
 
@@ -150,6 +150,26 @@
         if (host) { host.remove(); host = null; return; }
         host = document.createElement('div');
         host.id = 'vfh-host';
+        // Top layer (Popover API): a site modal - native <dialog> inert or a JS
+        // focus trap - must not make this panel unclickable/untypeable. Manual
+        // popover escapes inert without touching the site's modal at all.
+        host.setAttribute('popover', 'manual');
+        // Reset popover UA styles; placement comes from .vfh-panel's fixed CSS.
+        host.style.padding = '0';
+        host.style.border = 'none';
+        host.style.margin = '0';
+        host.style.background = 'transparent';
+        host.style.maxWidth = 'none';
+        host.style.maxHeight = 'none';
+        host.style.overflow = 'visible';
+        // Shield panel events from the page's document-level handlers: modal
+        // focus traps (focusin refocus), outside-click closers and key handlers
+        // must never see interaction with this panel. Our own Field-chuno
+        // listener is capture-phase, so it is unaffected.
+        ['keydown', 'keyup', 'keypress', 'mousedown', 'mouseup', 'click', 'dblclick',
+         'focusin', 'focusout', 'input', 'beforeinput'].forEach(function (type) {
+            host.addEventListener(type, function (e) { e.stopPropagation(); }, false);
+        });
         var shadow = host.attachShadow({ mode: 'open' });
         var style = document.createElement('style');
         style.textContent = CSS;
@@ -208,7 +228,18 @@
 
         shadow.appendChild(style);
         shadow.appendChild(panel);
-        document.documentElement.appendChild(host);
+        // If a NATIVE modal <dialog> is open, the whole document behind it is
+        // inert - even popovers can stay blocked in some builds. Mounting inside
+        // the dialog keeps the panel live; the top layer keeps it on top.
+        var mount = document.documentElement;
+        try {
+            var openDlg = document.querySelector('dialog:modal');
+            if (openDlg) mount = openDlg;
+        } catch (e) { /* :modal unsupported - documentElement mount still works */ }
+        mount.appendChild(host);
+        if (host.showPopover) {
+            try { host.showPopover(); } catch (e) { /* older Chrome: plain fixed panel still works */ }
+        }
         ta.focus();
     }
 
