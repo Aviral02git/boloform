@@ -30,7 +30,12 @@ the point of speaking.
 4. If something is incomplete or ambiguous (a 2-digit PIN, a 2-digit phone
    number), the panel asks instead of guessing. Locked/readonly fields (like
    City/State that a site computes from the PIN) are reported as skipped and
-   never overwritten. Fields you already filled yourself are left alone.
+   never overwritten. If two spoken details map to the same field, or one
+   detail arrives with two different values in one message, the panel asks
+   instead of overwriting. When a fill replaces a value that was already in
+   a field, the panel shows the previous value. And for anything BoloForm
+   cannot place confidently, a **Field chuno** button lets you click the
+   exact page field yourself - only that field gets filled.
 5. BoloForm never submits anything. You review the highlighted fields and
    submit yourself.
 
@@ -69,18 +74,27 @@ be reported as locked.
 
 Verified:
 
-- 36 parser unit tests (`node tests/parser.test.js`) covering narration,
+- 45 parser unit tests (`node tests/parser.test.js`) covering narration,
   directed commands, corrections, address splitting, incomplete values,
-  Devanagari input, dates, emails, phone/PIN validation.
+  Devanagari input, dates, emails, phone/PIN validation, plus regressions
+  from a real-site test: Wispr bullet-style transcripts ("- Key: value"),
+  PIN digits embedded in address clauses, alphanumeric house numbers.
 - End-to-end fill pipeline in headless Chrome against the demo form,
-  including locked-field skips, prefilled-field preservation and
-  ask-instead-of-guess behavior (screenshots above).
+  including locked-field skips and ask-instead-of-guess behavior
+  (screenshots above).
+- `tests/snitch-replica.html`: 13 headless-Chrome checks against a replica
+  of a real shopping site's add-address DOM (label collision "Name" vs
+  "House / Flat No / Apartment Name", an unlabeled `type=tel` phone input,
+  readonly City/State, conflicting duplicate values, manual field pick).
+  This is a locally served replica with dummy data, not the live site.
 
 Not yet verified:
 
 - Real Wispr Flow dictation into the panel - the capture box is a normal
   focused text field, which is exactly what Wispr types into, but the
   end-to-end voice test is pending on a local machine.
+- The current fixes on the live shopping site whose failure they address;
+  a retest there with the reloaded extension is the next step.
 - Arbitrary websites. Field matching is rule-based (labels, placeholders,
   input names); unfamiliar label wording may need new aliases in
   `parser.js` (`FIELDS`). This prototype does not claim every site or every
