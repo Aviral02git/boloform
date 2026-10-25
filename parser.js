@@ -21,6 +21,8 @@
         { key: 'pincode', label: 'PIN code', aliases: ['pincode', 'pin code', 'पिन कोड', 'पिन', 'pin', 'zip'] },
         { key: 'city', label: 'City', aliases: ['city', 'sheher', 'shahar', 'शहर'] },
         { key: 'state', label: 'State', aliases: ['state', 'rajya', 'राज्य'] },
+        { key: 'landmark', label: 'Landmark', aliases: ['landmark', 'land mark', 'लैंडमार्क'] },
+        { key: 'country', label: 'Country', aliases: ['country', 'desh', 'देश'] },
         { key: 'purpose', label: 'Purpose', aliases: ['purpose', 'udeshya', 'उद्देश्य', 'kaaran', 'कारण'] },
         { key: 'phone', label: 'Phone', aliases: ['phone number', 'mobile number', 'phone', 'mobile', 'फोन', 'मोबाइल', 'contact number', 'संपर्क', 'number'] },
         { key: 'email', label: 'Email', aliases: ['email', 'e-mail', 'ईमेल', 'ई-मेल', 'mail'] }
@@ -103,10 +105,28 @@
         });
     });
 
+    // "town" appears in page labels ("Town/City") but is also real address text
+    // ("Town Hall") - vocabulary for label detection only, never a field alias.
+    LABEL_VOCAB['town'] = 1;
+
     function isLabelToken(tok) {
         var subs = tok.toLowerCase().split(/[\/\-]/);
         for (var i = 0; i < subs.length; i++) {
             if (!subs[i] || !LABEL_VOCAB[subs[i]]) return false;
+        }
+        return true;
+    }
+
+    function frontIsLabelish(front) {
+        var toks = front.split(/\s+/).map(function (t) {
+            return t.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, '');
+        }).filter(function (t) { return t.length > 0; });
+        if (!toks.length) return false;
+        for (var i = 0; i < toks.length; i++) {
+            var low = toks[i].toLowerCase();
+            if (STOP_TOKENS.indexOf(low) !== -1) continue;
+            if (isLabelToken(toks[i])) continue;
+            return false;
         }
         return true;
     }
@@ -128,7 +148,7 @@
             var afterIdx = conn.lastIndex;
             if (s.slice(afterIdx).trim()) { cut = m.index; cutEnd = afterIdx; }
         }
-        if (cut !== -1 && hasAliasOrStopToken(s.slice(0, cut))) {
+        if (cut !== -1 && (hasAliasOrStopToken(s.slice(0, cut)) || frontIsLabelish(s.slice(0, cut)))) {
             s = s.slice(cutEnd);
         }
         // Drop only leading/trailing filler words. Interior words are the user's
@@ -247,6 +267,17 @@
     }
 
     function parseClause(clause) {
+        // Wispr sometimes transcribes "landmark" as "land block" in label
+        // position. Uncertain, so never auto-fill: ask and offer the value for
+        // manual field pick. Checked before findField because the VALUE itself
+        // may contain field words ("near City Hospital").
+        var lb = clause.match(/^\s*[-\u2022*\u2013\u2014]?\s*(land[\s\-]*block)\b/i);
+        if (lb) {
+            var lbv = cleanValue(clause, lb[1]);
+            if (lbv) {
+                return { ask: { key: 'landmark', label: 'Landmark', value: lbv, clause: clause, question: '"land block" shayad "landmark" ka transcription hai. Agar Landmark field me "' + lbv + '" bharna hai to "Field chuno" se Landmark chuno, ya dobara bolo: "landmark me ' + lbv + ' bhar do".' } };
+            }
+        }
         var hit = findField(clause);
         if (!hit) {
             // Bare-number shortcuts: a standalone 6-digit reads as PIN, 10-digit as phone.
@@ -274,7 +305,7 @@
         return { fill: { key: hit.field.key, label: hit.field.label, value: check.value } };
     }
 
-    var CONTINUATION_KEYS = ['house', 'street', 'address'];
+    var CONTINUATION_KEYS = ['house', 'street', 'address', 'landmark'];
 
     // Wispr often transcribes a dictated list as bulleted "- Key: value" lines.
     var BULLET_KEYS = {
@@ -287,7 +318,8 @@
         'street': 'street', 'street area': 'street', 'area': 'street', 'locality': 'street',
         'pin': 'pincode', 'pincode': 'pincode', 'pin code': 'pincode', 'zip': 'pincode',
         'zip code': 'pincode', 'postal code': 'pincode',
-        'city': 'city', 'state': 'state',
+        'city': 'city', 'town': 'city', 'town/city': 'city', 'city/town': 'city', 'state': 'state',
+        'landmark': 'landmark', 'land mark': 'landmark', 'country': 'country',
         'phone': 'phone', 'phone number': 'phone', 'mobile': 'phone',
         'mobile number': 'phone', 'contact': 'phone', 'contact number': 'phone',
         'email': 'email', 'e-mail': 'email', 'mail': 'email',
