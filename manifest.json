@@ -1,16 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "Voice Form Helper (Wispr demo)",
-  "version": "0.2.4",
+  "name": "BoloForm (Wispr voice form filling)",
+  "version": "0.3.0",
   "description": "Wispr se boli hui details ko khule form ke sahi fields me bharta hai. Kuch submit nahi karta.",
   "permissions": [
     "activeTab",
     "scripting"
   ],
   "action": {
-    "default_title": "Voice Form Helper kholo"
+    "default_title": "BoloForm panel kholo (Alt+Shift+B)"
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+B"
+      },
+      "description": "BoloForm panel kholo / band karo"
+    }
   }
 }
