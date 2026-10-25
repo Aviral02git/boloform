@@ -25,20 +25,25 @@ the point of speaking.
    - Corrections: "naam badal do Rahul Verma"
    Hindi, Hinglish and English all work.
 3. Press **Form bharo**. BoloForm reads the open page's fields, maps each
-   spoken detail to the right one, fills them, and highlights everything it
-   touched.
-4. If something is incomplete or ambiguous (a 2-digit PIN, a 2-digit phone
+   spoken detail to the right one, and shows a **preview of the mapping** -
+   which detail goes into which field, including any value a fill would
+   replace. Nothing is written yet.
+4. Press **Sahi hai, bharo** to apply the mapping (or Cancel to change the
+   transcript). Filled fields are highlighted; replaced fields show their
+   previous value in the panel.
+5. If something is incomplete or ambiguous (a 2-digit PIN, a 2-digit phone
    number), the panel asks instead of guessing. Locked/readonly fields (like
    City/State that a site computes from the PIN) are reported as skipped and
    never overwritten. If two spoken details map to the same field, or one
    detail arrives with two different values in one message, the panel asks
-   instead of overwriting. When a fill replaces a value that was already in
-   a field, the panel shows the previous value. And for anything BoloForm
-   cannot place confidently, a **Field chuno** button lets you click the
-   exact page field yourself - only that field gets filled.
-5. BoloForm never submits anything. You review the highlighted fields and
+   instead of overwriting. And for anything BoloForm cannot place
+   confidently, a **Field chuno** button lets you click the exact page field
+   yourself - only that field gets filled.
+6. BoloForm never submits anything. You review the highlighted fields and
    submit yourself.
 
+The panel header always shows the running version (e.g. `v0.2.0`) so a
+screenshot proves which build is loaded.
 ![One spoken sentence fills six fields, each highlighted](docs/vfh-panel-filled.png)
 
 ![Locked fields are skipped; an incomplete PIN is asked about, not guessed](docs/vfh-panel-ask.png)
@@ -74,19 +79,23 @@ be reported as locked.
 
 Verified:
 
-- 45 parser unit tests (`node tests/parser.test.js`) covering narration,
+- 54 parser unit tests (`node tests/parser.test.js`) covering narration,
   directed commands, corrections, address splitting, incomplete values,
   Devanagari input, dates, emails, phone/PIN validation, plus regressions
-  from a real-site test: Wispr bullet-style transcripts ("- Key: value"),
-  PIN digits embedded in address clauses, alphanumeric house numbers.
+  from real-site tests: Wispr bullet-style transcripts ("- Key: value" and
+  directed "field me value bharo" lines), PIN digits embedded in address
+  clauses, alphanumeric house numbers, values containing connector words
+  like "ka" ("Shanti ka Colony" stays whole).
+- `tests/snitch-replica.html`: 26 headless-Chrome checks against a replica
+  of a real shopping site's add-address DOM (label collision "Name" vs
+  "House / Flat No / Apartment Name", a phone input with no label - only a
+  `+91` chip and a numeric placeholder, readonly City/State, conflicting
+  duplicate values, preview-then-confirm flow through the real panel code,
+  and the manual "Field chuno" pick). This is a locally served replica with
+  dummy data, not the live site.
 - End-to-end fill pipeline in headless Chrome against the demo form,
   including locked-field skips and ask-instead-of-guess behavior
   (screenshots above).
-- `tests/snitch-replica.html`: 13 headless-Chrome checks against a replica
-  of a real shopping site's add-address DOM (label collision "Name" vs
-  "House / Flat No / Apartment Name", an unlabeled `type=tel` phone input,
-  readonly City/State, conflicting duplicate values, manual field pick).
-  This is a locally served replica with dummy data, not the live site.
 
 Not yet verified:
 
