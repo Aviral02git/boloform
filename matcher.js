@@ -12,7 +12,7 @@
     // (e.g. "Father's Name" must not catch a plain "name" value).
     var NEGATIVE_HINTS = {
         // "Name" must never land in "House / Flat No / Apartment Name" and vice versa.
-        name: ['father', 'mother', 'spouse', 'pita', 'pitaji', 'पिता', 'माता', 'husband', 'wife', 'contact',
+        name: ['father', 'mother', 'spouse', 'pita', 'pitaji', 'à¤ªà¤¿à¤¤à¤¾', 'à¤®à¤¾à¤¤à¤¾', 'husband', 'wife', 'contact',
                'house', 'flat', 'apartment', 'street', 'area', 'locality', 'landmark', 'pincode', 'pin',
                'city', 'state', 'address', 'shop', 'store', 'company', 'business'],
         father: ['mother', 'spouse'],
@@ -32,6 +32,16 @@
 
     var SKIP_TYPES = ['hidden', 'submit', 'button', 'reset', 'file', 'checkbox', 'radio', 'password', 'image'];
 
+    // HTML autocomplete tokens -> our keys (WHATWG standard, real sites use it).
+    var AUTOCOMPLETE_MAP = {
+        'name': 'name', 'given-name': 'name', 'family-name': 'name',
+        'bday': 'dob', 'street-address': 'house', 'address-line1': 'house',
+        'address-line2': 'street', 'postal-code': 'pincode',
+        'address-level2': 'city', 'address-level1': 'state',
+        'country': 'country', 'country-name': 'country',
+        'tel': 'phone', 'tel-national': 'phone', 'email': 'email'
+    };
+
     function humanize(s) {
         return (s || '').replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().trim();
     }
@@ -40,6 +50,30 @@
     // name/id attributes: negative hints apply only to what the user sees, so
     // framework ids like "address-ui-widgets-enterAddressFullName" can no longer
     // disqualify a perfectly good "Full name" field.
+    function siblingLabelText(el, doc) {
+        // Floating labels and Google-Forms-style question text sit in a nearby
+        // element BEFORE the input, not in a label[for]. Walk preceding
+        // siblings, climbing up to 4 ancestors. A sibling that IS or CONTAINS a
+        // form control is a barrier (it belongs to another field), headings are
+        // skipped (form titles are not labels), and the text must contain a
+        // letter (a "+91" chip is not a label).
+        var node = el;
+        for (var h = 0; h < 4 && node && node !== doc.body; h++) {
+            var sib = node.previousElementSibling;
+            while (sib) {
+                var tag = sib.tagName ? sib.tagName.toLowerCase() : '';
+                if (/^(input|textarea|select)$/.test(tag) || sib.querySelector('input,textarea,select')) break;
+                if (!/^h[1-6]$/.test(tag)) {
+                    var t = (sib.textContent || '').replace(/\s+/g, ' ').trim();
+                    if (t.length >= 2 && t.length <= 90 && /[\p{L}]/u.test(t)) return t;
+                }
+                sib = sib.previousElementSibling;
+            }
+            node = node.parentElement;
+        }
+        return '';
+    }
+
     function labelText(el, doc) {
         var visible = [];
         if (el.id) {
@@ -49,6 +83,14 @@
         var wrapping = el.closest('label');
         if (wrapping) visible.push(wrapping.textContent);
         if (el.getAttribute('aria-label')) visible.push(el.getAttribute('aria-label'));
+        if (el.getAttribute('aria-labelledby')) {
+            el.getAttribute('aria-labelledby').split(/\s+/).forEach(function (id) {
+                var n = doc.getElementById(id);
+                if (n) visible.push(n.textContent);
+            });
+        }
+        var sibLabel = siblingLabelText(el, doc);
+        if (sibLabel) visible.push(sibLabel);
         if (el.getAttribute('placeholder')) visible.push(el.getAttribute('placeholder'));
         var parts = visible.slice();
         if (el.name) parts.push(humanize(el.name));
@@ -105,6 +147,9 @@
             }
         }
         if (key === 'email' && (f.el.getAttribute('type') || '').toLowerCase() === 'email') return 100;
+        // The autocomplete attribute is the most reliable signal on modern sites.
+        var acTok = (f.el.getAttribute('autocomplete') || '').toLowerCase().trim();
+        if (acTok && AUTOCOMPLETE_MAP[acTok] === key) return 95;
         if (!f.text) return 0;
         var neg = NEGATIVE_HINTS[key] || [];
         for (var i = 0; i < neg.length; i++) {
@@ -144,6 +189,9 @@
     }
 
     function highlight(el) {
+        if (!el.hasAttribute('data-vfh-highlighted')) {
+            el.setAttribute('data-vfh-oldstyle', el.getAttribute('style') || '');
+        }
         el.style.outline = '2px solid #2f7a67';
         el.style.backgroundColor = '#e8f4ef';
         el.setAttribute('data-vfh-highlighted', '1');
@@ -151,17 +199,21 @@
 
     function clearHighlights(doc) {
         doc.querySelectorAll('[data-vfh-highlighted]').forEach(function (el) {
-            el.style.outline = '';
-            el.style.backgroundColor = '';
+            var old = el.getAttribute('data-vfh-oldstyle');
+            if (old) el.setAttribute('style', old); else el.removeAttribute('style');
             el.removeAttribute('data-vfh-highlighted');
+            el.removeAttribute('data-vfh-oldstyle');
         });
     }
 
     function findOption(el, value) {
-        var lower = value.toLowerCase();
-        return Array.prototype.find.call(el.options, function (o) {
-            return o.value.toLowerCase() === lower || o.textContent.toLowerCase().indexOf(lower) !== -1;
-        });
+        var v = value.toLowerCase().trim();
+        var opts = Array.prototype.slice.call(el.options);
+        function t(o) { return o.textContent.toLowerCase().trim(); }
+        return opts.find(function (o) { return o.value.toLowerCase() === v || t(o) === v; })
+            || opts.find(function (o) { return t(o).indexOf(v) === 0; })
+            || opts.find(function (o) { return (' ' + t(o) + ' ').indexOf(' ' + v + ' ') !== -1; })
+            || null;
     }
 
     // Read-only check: can this value be written without actually writing it?
@@ -170,17 +222,113 @@
         return !!findOption(el, value);
     }
 
+    // React/Vue track input values through their own prototype setter: a plain
+    // el.value = x writes the DOM but the framework still thinks the field is
+    // empty and can wipe it. Writing through the native prototype setter plus
+    // real events is what a human's typing looks like to those frameworks.
+    function nativeSet(el, value) {
+        var tag = el.tagName;
+        var proto = tag === 'TEXTAREA' ? HTMLTextAreaElement.prototype
+                  : tag === 'SELECT' ? HTMLSelectElement.prototype
+                  : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+    }
+
     function setValue(el, value) {
+        var type = (el.type || '').toLowerCase();
         if (el.tagName.toLowerCase() === 'select') {
             var opt = findOption(el, value);
-            if (opt) el.value = opt.value; else return false;
+            if (opt) nativeSet(el, opt.value); else return false;
+        } else if (type === 'radio') {
+            if (!el.checked) el.click();
+            highlight(el.labels && el.labels.length ? el.labels[0] : el);
+            return true;
+        } else if (type === 'date') {
+            // <input type=date> only accepts YYYY-MM-DD; we speak DD/MM/YYYY.
+            var dm = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            nativeSet(el, dm ? dm[3] + '-' + dm[2] + '-' + dm[1] : value);
         } else {
-            el.value = value;
+            nativeSet(el, value);
         }
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
         highlight(el);
         return true;
+    }
+
+    // ---- Radio groups (gender, yes/no, address type): matched as ONE group,
+    // the spoken value picks the option. Never writes anything but a click. ----
+    function radioGroups(doc) {
+        var groups = [];
+        var byName = {};
+        doc.querySelectorAll('input[type=radio]').forEach(function (r) {
+            if (r.closest('#vfh-host') || r.disabled) return;
+            var key = r.name || ('__anon_' + groups.length);
+            if (!byName[key]) { byName[key] = { name: r.name || '', radios: [] }; groups.push(byName[key]); }
+            byName[key].radios.push(r);
+        });
+        return groups;
+    }
+
+    function radioOptionLabel(r, doc) {
+        if (r.id) {
+            var lbl = doc.querySelector('label[for="' + r.id.replace(/"/g, '\\"') + '"]');
+            if (lbl) return lbl.textContent.replace(/\s+/g, ' ').trim();
+        }
+        var wrapping = r.closest('label');
+        if (wrapping) return wrapping.textContent.replace(/\s+/g, ' ').trim();
+        if (r.getAttribute('aria-label')) return r.getAttribute('aria-label').trim();
+        var sib = r.nextElementSibling;
+        if (sib && !sib.querySelector('input,textarea,select')) {
+            var t = (sib.textContent || '').replace(/\s+/g, ' ').trim();
+            if (t) return t;
+        }
+        return (r.value || '').trim();
+    }
+
+    function groupLabelText(g, doc) {
+        var first = g.radios[0];
+        var fs = first.closest('fieldset');
+        if (fs) {
+            var lg = fs.querySelector('legend');
+            if (lg) return lg.textContent.replace(/\s+/g, ' ').trim();
+        }
+        var rg = first.closest('[role="radiogroup"]');
+        if (rg && rg.getAttribute('aria-label')) return rg.getAttribute('aria-label').trim();
+        var sib = siblingLabelText(first, doc);
+        if (sib) return sib;
+        return humanize(g.name);
+    }
+
+    function matchRadioGroup(key, value, doc) {
+        var field = PARSER.FIELDS.find(function (x) { return x.key === key; });
+        var neg = NEGATIVE_HINTS[key] || [];
+        var best = null, bestScore = 0;
+        radioGroups(doc).forEach(function (g) {
+            var gt = groupLabelText(g, doc).toLowerCase();
+            if (!gt) return;
+            for (var i = 0; i < neg.length; i++) { if (hasWord(gt, neg[i])) return; }
+            var s = 0;
+            field.aliases.forEach(function (a) {
+                var al = a.toLowerCase();
+                if (gt === al) s = Math.max(s, 100 + al.length);
+                else if (hasWord(gt, al)) s = Math.max(s, 50 + al.length);
+            });
+            if (s > bestScore) { bestScore = s; best = { group: g, label: groupLabelText(g, doc) }; }
+        });
+        if (!best) return null;
+        // pick the option matching the spoken value: exact -> starts-with -> word
+        var v = value.toLowerCase().trim();
+        var chosen = null, options = [];
+        best.group.radios.forEach(function (r) {
+            var t = radioOptionLabel(r, doc).toLowerCase();
+            options.push(t);
+            if (chosen) return;
+            if (t === v || r.value.toLowerCase() === v) chosen = r;
+            else if (t.indexOf(v) === 0) chosen = r;
+            else if ((' ' + t + ' ').indexOf(' ' + v + ' ') !== -1) chosen = r;
+        });
+        return { radio: chosen, groupLabel: best.label, options: options, group: best.group };
     }
 
     // Preview-first flow: compute the full field/value mapping WITHOUT writing.
@@ -215,9 +363,28 @@
                 plan.items.push({ status: 'write', el: m.el, key: fill.key, label: fill.label, value: fill.value, fieldLabel: shortLabel, oldValue: (oldValue && oldValue !== fill.value) ? oldValue : null });
                 plan.hasWrites = true;
             } else if (m && m.locked) {
-                plan.items.push({ status: 'locked', key: fill.key, label: fill.label, value: fill.value, fieldLabel: m.label.split('|')[0].trim() });
+                var rgL = matchRadioGroup(fill.key, fill.value, doc);
+                if (rgL && rgL.radio) {
+                    plan.items.push({ status: 'write', el: rgL.radio, key: fill.key, label: fill.label, value: fill.value,
+                        fieldLabel: rgL.groupLabel, isRadio: true,
+                        oldValue: (function () { var ch = rgL.group.radios.find(function (r) { return r.checked; }); return ch && ch !== rgL.radio ? radioOptionLabel(ch, doc) : null; })() });
+                    plan.hasWrites = true;
+                } else {
+                    plan.items.push({ status: 'locked', key: fill.key, label: fill.label, value: fill.value, fieldLabel: m.label.split('|')[0].trim() });
+                }
             } else {
-                plan.items.push({ status: 'notfound', key: fill.key, label: fill.label, value: fill.value });
+                var rg = matchRadioGroup(fill.key, fill.value, doc);
+                if (rg && rg.radio) {
+                    var checked = rg.group.radios.find(function (r) { return r.checked; });
+                    plan.items.push({ status: 'write', el: rg.radio, key: fill.key, label: fill.label, value: fill.value,
+                        fieldLabel: rg.groupLabel, isRadio: true,
+                        oldValue: checked && checked !== rg.radio ? radioOptionLabel(checked, doc) : null });
+                    plan.hasWrites = true;
+                } else if (rg && !rg.radio) {
+                    plan.asks.push({ key: fill.key, label: fill.label, value: fill.value, question: fill.label + ' ke group me "' + fill.value + '" option nahi mila. Options hain: ' + rg.options.join(', ') + ' - in me se ek bolna.' });
+                } else {
+                    plan.items.push({ status: 'notfound', key: fill.key, label: fill.label, value: fill.value });
+                }
             }
         });
         return plan;
@@ -225,7 +392,7 @@
 
     // Write an approved plan to the page. Returns the fill report.
     function applyPlan(plan) {
-        var report = { filled: [], notFound: [], locked: [], asks: plan.asks.slice() };
+        var report = { filled: [], notFound: [], locked: [], asks: plan.asks.slice(), undo: [] };
         var firstEl = null;
         plan.items.forEach(function (it) {
             if (it.status === 'write') {
@@ -233,6 +400,9 @@
                     var entry = { key: it.key, label: it.label, value: it.value, fieldLabel: it.fieldLabel };
                     if (it.oldValue) entry.oldValue = it.oldValue;
                     report.filled.push(entry);
+                    report.undo.push(it.isRadio
+                        ? { radio: true, el: it.el, groupName: it.el.name, oldValue: it.oldValue || null }
+                        : { radio: false, el: it.el, oldValue: it.oldValue || '', newValue: it.el.value });
                     if (!firstEl) firstEl = it.el;
                 } else {
                     report.asks.push({ key: it.key, label: it.label, value: it.value, question: it.label + ' ke liye "' + it.value + '" likhte waqt field ne mana kar diya. Khud likhna ya "Field chuno" use karna.' });
@@ -263,5 +433,35 @@
         return { ok: true, oldValue: oldValue };
     }
 
-    return { fillFromTranscript: fillFromTranscript, planFromTranscript: planFromTranscript, applyPlan: applyPlan, clearHighlights: clearHighlights, matchField: matchField, fillElement: fillElement };
+    // Restore the values the last approved write replaced. Radio groups go back
+    // to the previously-checked option (or unchecked if none was checked).
+    // Undo restores only fields still holding the value BoloForm wrote.
+    // A field the user edited after the fill is left alone and reported.
+    function undoLastApply(undoEntries) {
+        var restored = 0, kept = 0;
+        (undoEntries || []).forEach(function (u) {
+            if (u.radio) {
+                if (!u.el.checked) { kept++; return; } // user changed the selection after the fill
+                if (u.oldValue) {
+                    var radios = u.el.form ? u.el.form.elements[u.groupName] : document.querySelectorAll('input[type=radio][name="' + u.groupName + '"]');
+                    var list = radios && radios.length !== undefined ? Array.prototype.slice.call(radios) : [radios];
+                    list.forEach(function (r) {
+                        if (r && radioOptionLabel(r, document).toLowerCase() === u.oldValue.toLowerCase() && !r.checked) { r.click(); }
+                    });
+                } else if (u.el.checked) {
+                    u.el.checked = false;
+                }
+                restored++;
+            } else {
+                if (u.newValue != null && u.el.value !== u.newValue) { kept++; return; } // user edited after the fill
+                nativeSet(u.el, u.oldValue);
+                u.el.dispatchEvent(new Event('input', { bubbles: true }));
+                u.el.dispatchEvent(new Event('change', { bubbles: true }));
+                restored++;
+            }
+        });
+        return { restored: restored, kept: kept };
+    }
+
+    return { fillFromTranscript: fillFromTranscript, planFromTranscript: planFromTranscript, applyPlan: applyPlan, clearHighlights: clearHighlights, matchField: matchField, fillElement: fillElement, undoLastApply: undoLastApply };
 });
