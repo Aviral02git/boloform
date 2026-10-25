@@ -29,7 +29,7 @@
     var VERBS_LATIN = ['bhar dijiye', 'bhar do', 'bharna', 'bhariye', 'bharo', 'daal dijiye', 'daal do', 'daalo', 'daal', 'likh dijiye', 'likh do', 'likho', 'likhna', 'fill karo', 'fill in', 'fill', 'set karo', 'set', 'badal do', 'badlo', 'update karo', 'update', 'daalna', 'likhna'];
     var VERBS_DEVA = ['भर दीजिये', 'भर दो', 'भरिए', 'भरना', 'भरो', 'डाल दीजिये', 'डाल दो', 'डालो', 'डालना', 'लिख दीजिये', 'लिख दो', 'लिखना', 'लिखो', 'बदल दो', 'बदलो'];
 
-    var STOP_TOKENS = ['field', 'column', 'box', 'me', 'mein', 'में', 'मे', 'ka', 'ki', 'ke', 'का', 'की', 'के', 'hai', 'है', 'हैं', 'he', 'mera', 'meri', 'mere', 'मेरा', 'मेरी', 'मेरे', 'apna', 'apni', 'apne', 'अपना', 'अपनी', 'अपने', 'to', 'is', 'as', 'ko', 'को', 'please', 'plz', 'ji', 'जी', 'wapas', 'वापस', 'dobara', 'दोबारा', 'phir', 'फिर', 'se', 'से', 'aise', 'ऐसे', 'jaise', 'जैसे', 'wala', 'wali', 'वाला', 'वाली', 'ye', 'ये', 'यह', 'karo', 'करो', 'karna', 'करना', 'do', 'दो', 'dijiye', 'दीजिये', 'hona', 'होना', 'chahiye', 'चाहिए', 'the', 'a', 'an', 'my'];
+    var STOP_TOKENS = ['field', 'column', 'box', 'me', 'mein', 'में', 'मे', 'मूं', 'ka', 'ki', 'ke', 'का', 'की', 'के', 'hai', 'है', 'हैं', 'he', 'mera', 'meri', 'mere', 'मेरा', 'मेरी', 'मेरे', 'apna', 'apni', 'apne', 'अपना', 'अपनी', 'अपने', 'to', 'is', 'as', 'ko', 'को', 'please', 'plz', 'ji', 'जी', 'wapas', 'वापस', 'dobara', 'दोबारा', 'phir', 'फिर', 'se', 'से', 'aise', 'ऐसे', 'jaise', 'जैसे', 'wala', 'wali', 'वाला', 'वाली', 'ye', 'ये', 'यह', 'karo', 'करो', 'karna', 'करना', 'do', 'दो', 'dijiye', 'दीजिये', 'hona', 'होना', 'chahiye', 'चाहिए', 'the', 'a', 'an', 'my'];
 
     var MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12, jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12, 'जनवरी': 1, 'फरवरी': 2, 'मार्च': 3, 'अप्रैल': 4, 'मई': 5, 'जून': 6, 'जुलाई': 7, 'अगस्त': 8, 'सितंबर': 9, 'सितम्बर': 9, 'अक्टूबर': 10, 'अक्तूबर': 10, 'नवंबर': 11, 'नवम्बर': 11, 'दिसंबर': 12, 'दिसम्बर': 12 };
 
@@ -74,30 +74,57 @@
         return s;
     }
 
+    function hasAliasOrStopToken(s) {
+        var toks = s.toLowerCase().split(/\s+/);
+        var allAliases = [];
+        FIELDS.forEach(function (f) { f.aliases.forEach(function (a) { allAliases.push(a.toLowerCase()); }); });
+        for (var i = 0; i < toks.length; i++) {
+            var t = toks[i].replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, '');
+            if (!t) continue;
+            if (STOP_TOKENS.indexOf(t) !== -1) return true;
+            for (var j = 0; j < allAliases.length; j++) {
+                if (allAliases[j] === t) return true;
+            }
+        }
+        return false;
+    }
+
+    var EDGE_LABEL_WORDS = ['naam', 'नाम'];
+
     function cleanValue(raw, matchedAlias) {
-        var s = raw.replace(matchedAlias, ' ');
+        var escA = matchedAlias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+');
+        var s = raw.replace(new RegExp('\\b' + escA + '\\b', 'i'), ' ');
+        if (s === raw) s = raw.replace(new RegExp(escA, 'i'), ' ');
         s = stripVerbs(s);
-        // Drop every field alias anywhere (e.g. "pita ka naam X" -> after removing "pita", drop "naam").
-        FIELDS.forEach(function (f) {
-            f.aliases.forEach(function (a) {
-                if (/^[a-z]/.test(a)) {
-                    s = s.replace(new RegExp('\\b' + a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+') + '\\b', 'gi'), ' ');
-                } else {
-                    s = s.split(a).join(' ');
-                }
-            });
-        });
         s = s.replace(/[:=]+/g, ' ');
         // Strip dashes/slashes only when not between digits (keep dates and numbers intact).
         s = s.replace(/(?<!\d)[\/\-]|[\/\-](?!\d)/g, ' ');
-        var tokens = s.split(/\s+/).filter(function (t) {
-            if (!t) return false;
-            var bare = t.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, '');
-            if (!bare) return false;
-            if (STOP_TOKENS.indexOf(bare.toLowerCase()) !== -1) return false;
-            return true;
-        }).map(function (t) { return t.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, ''); });
-        // restore date slashes stripped above: re-check original for a date pattern first (handled in validate)
+        // Directed commands put the label first, then "mein <value>": keep only
+        // the part after the last connector when the front still looks label-ish
+        // ("... apartment name me 2A Block 45 bharo" -> "2A Block 45").
+        var conn = /(?:^|\s)(में|मे|मूं|mein|me)\s/g, m, cut = -1, cutEnd = -1;
+        while ((m = conn.exec(s)) !== null) {
+            var afterIdx = conn.lastIndex;
+            if (s.slice(afterIdx).trim()) { cut = m.index; cutEnd = afterIdx; }
+        }
+        if (cut !== -1 && hasAliasOrStopToken(s.slice(0, cut))) {
+            s = s.slice(cutEnd);
+        }
+        // Drop only leading/trailing filler words. Interior words are the user's
+        // data - never strip them ("Shanti ka Colony" keeps "ka" and "Colony").
+        var tokens = s.split(/\s+/).map(function (t) {
+            return t.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, '');
+        });
+        while (tokens.length && !tokens[0]) tokens.shift();
+        while (tokens.length && !tokens[tokens.length - 1]) tokens.pop();
+        while (tokens.length) {
+            var first = tokens[0].toLowerCase();
+            if (STOP_TOKENS.indexOf(first) !== -1 || EDGE_LABEL_WORDS.indexOf(first) !== -1) tokens.shift(); else break;
+        }
+        while (tokens.length) {
+            var last = tokens[tokens.length - 1].toLowerCase();
+            if (STOP_TOKENS.indexOf(last) !== -1) tokens.pop(); else break;
+        }
         return collapse(tokens.join(' ').replace(/\s*([.,/@])\s*/g, '$1'));
     }
 
