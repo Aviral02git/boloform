@@ -42,7 +42,7 @@ the point of speaking.
 6. BoloForm never submits anything. You review the highlighted fields and
    submit yourself.
 
-The panel header always shows the running version (e.g. `v0.2.0`) so a
+The panel header always shows the running version (e.g. `v0.2.1`) so a
 screenshot proves which build is loaded.
 ![One spoken sentence fills six fields, each highlighted](docs/vfh-panel-filled.png)
 
@@ -79,19 +79,21 @@ be reported as locked.
 
 Verified:
 
-- 54 parser unit tests (`node tests/parser.test.js`) covering narration,
+- 57 parser unit tests (`node tests/parser.test.js`) covering narration,
   directed commands, corrections, address splitting, incomplete values,
   Devanagari input, dates, emails, phone/PIN validation, plus regressions
   from real-site tests: Wispr bullet-style transcripts ("- Key: value" and
   directed "field me value bharo" lines), PIN digits embedded in address
   clauses, alphanumeric house numbers, values containing connector words
-  like "ka" ("Shanti ka Colony" stays whole).
-- `tests/snitch-replica.html`: 26 headless-Chrome checks against a replica
+  like "ka" ("Shanti ka Colony" stays whole), house/flat IDs keeping their
+  separators exactly as dictated ("2A/45", "2A-45").
+- `tests/snitch-replica.html`: 29 headless-Chrome checks against a replica
   of a real shopping site's add-address DOM (label collision "Name" vs
   "House / Flat No / Apartment Name", a phone input with no label - only a
   `+91` chip and a numeric placeholder, readonly City/State, conflicting
-  duplicate values, preview-then-confirm flow through the real panel code,
-  and the manual "Field chuno" pick). This is a locally served replica with
+  duplicate values, a phone chip shared across a flat form's fields,
+  preview-then-confirm flow through the real panel code, and the manual
+  "Field chuno" pick). This is a locally served replica with
   dummy data, not the live site.
 - End-to-end fill pipeline in headless Chrome against the demo form,
   including locked-field skips and ask-instead-of-guess behavior
