@@ -1,4 +1,4 @@
-const p = require('/home/sandbox/voice-form-helper/parser.js');
+const p = require(__dirname + '/../parser.js');
 let pass = 0, fail = 0;
 function check(name, cond) { if (cond) { pass++; } else { fail++; console.log('FAIL: ' + name); } }
 function fill(r, key) { const f = r.fills.find(x => x.key === key); return f && f.value; }
@@ -80,6 +80,24 @@ r = p.parse('110034');
 check('bare 6-digit is pincode', fill(r,'pincode')==='110034');
 r = p.parse('9876501234');
 check('bare 10-digit is phone', fill(r,'phone')==='9876501234');
+
+// --- regression: first real-site test (Snitch add-address), dummy values ---
+r = p.parse('- Name: Rahul Sharma\n- House: 452A\n- Street: Model Town Phase 2\n- PIN code: 148001\n- Phone number: 9876501234');
+check('bullet name', fill(r,'name')==='Rahul Sharma');
+check('bullet house intact', fill(r,'house')==='452A');
+check('bullet street', fill(r,'street')==='Model Town Phase 2');
+check('bullet pincode', fill(r,'pincode')==='148001');
+check('bullet phone', fill(r,'phone')==='9876501234');
+
+r = p.parse('house 452A, street Green Colony');
+check('alphanumeric house kept', fill(r,'house')==='452A');
+
+r = p.parse('Green Colony PIN code 4: 148001');
+check('pin rescued from address clause', fill(r,'pincode')==='148001');
+check('street without pin digits', fill(r,'street') && fill(r,'street').indexOf('148001')===-1);
+
+r = p.parse('PIN code 4: 209625');
+check('stray digit before pin rescued', fill(r,'pincode')==='209625');
 
 console.log('TOTAL: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
