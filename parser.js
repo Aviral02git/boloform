@@ -9,38 +9,38 @@
 })(typeof self !== 'undefined' ? self : globalThis, function () {
 
     var FIELDS = [
-        { key: 'name', label: 'Name', aliases: ['full name', 'applicant name', 'name', 'naam', 'नाम'] },
-        { key: 'father', label: "Father's name", aliases: ["father's name", 'father name', 'father', 'pita', 'pitaji', 'पिताजी', 'पिता'] },
-        { key: 'dob', label: 'Date of birth', aliases: ['date of birth', 'janm tithi', 'janam tithi', 'जन्म तिथि', 'dob', 'birth'] },
-        { key: 'gender', label: 'Gender', aliases: ['gender', 'ling', 'लिंग', 'sex'] },
-        { key: 'address', label: 'Address', aliases: ['address', 'pata', 'पता', 'residence', 'पताए'] },
-        { key: 'occupation', label: 'Occupation', aliases: ['occupation', 'pesha', 'पेशा', 'kaam', 'काम', 'profession'] },
-        { key: 'income', label: 'Annual income', aliases: ['annual income', 'varshik aay', 'वार्षिक आय', 'income', 'aay', 'आय', 'salary'] },
-        { key: 'house', label: 'House / Flat', aliases: ['house flat', 'flat no', 'house no', 'apartment name', 'apartment', 'house', 'flat', 'makan', 'मकान'] },
-        { key: 'street', label: 'Street / Area', aliases: ['street', 'area', 'gali', 'गली', 'स्ट्रीट', 'एरिया', 'colony'] },
-        { key: 'pincode', label: 'PIN code', aliases: ['pincode', 'pin code', 'पिन कोड', 'पिन', 'pin', 'zip'] },
-        { key: 'city', label: 'City', aliases: ['city', 'sheher', 'shahar', 'शहर'] },
-        { key: 'state', label: 'State', aliases: ['state', 'rajya', 'राज्य'] },
-        { key: 'landmark', label: 'Landmark', aliases: ['landmark', 'land mark', 'लैंडमार्क'] },
-        { key: 'country', label: 'Country', aliases: ['country', 'desh', 'देश'] },
-        { key: 'purpose', label: 'Purpose', aliases: ['purpose', 'udeshya', 'उद्देश्य', 'kaaran', 'कारण'] },
-        { key: 'phone', label: 'Phone', aliases: ['phone number', 'mobile number', 'phone', 'mobile', 'फोन', 'मोबाइल', 'contact number', 'संपर्क', 'number'] },
-        { key: 'email', label: 'Email', aliases: ['email', 'e-mail', 'ईमेल', 'ई-मेल', 'mail'] }
+        { key: 'name', label: 'Name', aliases: ['full name', 'applicant name', 'name', 'naam', 'à¤¨à¤¾à¤®'] },
+        { key: 'father', label: "Father's name", aliases: ["father's name", 'father name', 'father', 'pita', 'pitaji', 'à¤ªà¤¿à¤¤à¤¾à¤à¥', 'à¤ªà¤¿à¤¤à¤¾'] },
+        { key: 'dob', label: 'Date of birth', aliases: ['date of birth', 'janm tithi', 'janam tithi', 'à¤à¤¨à¥à¤® à¤¤à¤¿à¤¥à¤¿', 'dob', 'birth'] },
+        { key: 'gender', label: 'Gender', aliases: ['gender', 'ling', 'à¤²à¤¿à¤à¤', 'sex'] },
+        { key: 'address', label: 'Address', aliases: ['address', 'pata', 'à¤ªà¤¤à¤¾', 'residence', ] },
+        { key: 'occupation', label: 'Occupation', aliases: ['occupation', 'pesha', 'à¤ªà¥à¤¶à¤¾', 'kaam', 'à¤à¤¾à¤®', 'profession'] },
+        { key: 'income', label: 'Annual income', aliases: ['annual income', 'varshik aay', 'à¤µà¤¾à¤°à¥à¤·à¤¿à¤ à¤à¤¯', 'income', 'aay', 'à¤à¤¯', 'salary'] },
+        { key: 'house', label: 'House / Flat', aliases: ['house flat', 'flat no', 'house no', 'apartment name', 'apartment', 'house', 'flat', 'makan', 'à¤®à¤à¤¾à¤¨'] },
+        { key: 'street', label: 'Street / Area', aliases: ['street', 'area', 'gali', 'à¤à¤²à¥', 'à¤¸à¥à¤à¥à¤°à¥à¤', 'à¤à¤°à¤¿à¤¯à¤¾', 'colony'] },
+        { key: 'pincode', label: 'PIN code', aliases: ['pincode', 'pin code', 'à¤ªà¤¿à¤¨ à¤à¥à¤¡', 'à¤ªà¤¿à¤¨', 'pin', 'zip'] },
+        { key: 'city', label: 'City', aliases: ['city', 'sheher', 'shahar', 'à¤¶à¤¹à¤°'] },
+        { key: 'state', label: 'State', aliases: ['state', 'rajya', 'à¤°à¤¾à¤à¥à¤¯'] },
+        { key: 'landmark', label: 'Landmark', aliases: ['landmark', 'land mark', 'à¤²à¥à¤à¤¡à¤®à¤¾à¤°à¥à¤'] },
+        { key: 'country', label: 'Country', aliases: ['country', 'desh', 'à¤¦à¥à¤¶'] },
+        { key: 'purpose', label: 'Purpose', aliases: ['purpose', 'udeshya', 'à¤à¤¦à¥à¤¦à¥à¤¶à¥à¤¯', 'kaaran', 'à¤à¤¾à¤°à¤£'] },
+        { key: 'phone', label: 'Phone', aliases: ['phone number', 'mobile number', 'phone', 'mobile', 'à¤«à¥à¤¨', 'à¤®à¥à¤¬à¤¾à¤à¤²', 'contact number', 'à¤¸à¤à¤ªà¤°à¥à¤'] },
+        { key: 'email', label: 'Email', aliases: ['email', 'e-mail', 'à¤à¤®à¥à¤²', 'à¤-à¤®à¥à¤²', 'mail'] }
     ];
 
     var VERBS_LATIN = ['bhar dijiye', 'bhar do', 'bharna', 'bhariye', 'bharo', 'daal dijiye', 'daal do', 'daalo', 'daal', 'likh dijiye', 'likh do', 'likho', 'likhna', 'fill karo', 'fill in', 'fill', 'set karo', 'set', 'badal do', 'badlo', 'update karo', 'update', 'daalna', 'likhna'];
-    var VERBS_DEVA = ['भर दीजिये', 'भर दो', 'भरिए', 'भरना', 'भरो', 'डाल दीजिये', 'डाल दो', 'डालो', 'डालना', 'लिख दीजिये', 'लिख दो', 'लिखना', 'लिखो', 'बदल दो', 'बदलो'];
+    var VERBS_DEVA = ['à¤­à¤° à¤¦à¥à¤à¤¿à¤¯à¥', 'à¤­à¤° à¤¦à¥', 'à¤­à¤°à¤¿à¤', 'à¤­à¤°à¤¨à¤¾', 'à¤­à¤°à¥', 'à¤¡à¤¾à¤² à¤¦à¥à¤à¤¿à¤¯à¥', 'à¤¡à¤¾à¤² à¤¦à¥', 'à¤¡à¤¾à¤²à¥', 'à¤¡à¤¾à¤²à¤¨à¤¾', 'à¤²à¤¿à¤ à¤¦à¥à¤à¤¿à¤¯à¥', 'à¤²à¤¿à¤ à¤¦à¥', 'à¤²à¤¿à¤à¤¨à¤¾', 'à¤²à¤¿à¤à¥', 'à¤¬à¤¦à¤² à¤¦à¥', 'à¤¬à¤¦à¤²à¥'];
 
-    var STOP_TOKENS = ['field', 'column', 'box', 'me', 'mein', 'में', 'मे', 'मूं', 'ka', 'ki', 'ke', 'का', 'की', 'के', 'hai', 'है', 'हैं', 'he', 'mera', 'meri', 'mere', 'मेरा', 'मेरी', 'मेरे', 'apna', 'apni', 'apne', 'अपना', 'अपनी', 'अपने', 'to', 'is', 'as', 'ko', 'को', 'please', 'plz', 'ji', 'जी', 'wapas', 'वापस', 'dobara', 'दोबारा', 'phir', 'फिर', 'se', 'से', 'aise', 'ऐसे', 'jaise', 'जैसे', 'wala', 'wali', 'वाला', 'वाली', 'ye', 'ये', 'यह', 'karo', 'करो', 'karna', 'करना', 'do', 'दो', 'dijiye', 'दीजिये', 'hona', 'होना', 'chahiye', 'चाहिए', 'the', 'a', 'an', 'my'];
+    var STOP_TOKENS = ['field', 'column', 'box', 'me', 'mein', 'à¤®à¥à¤', 'à¤®à¥', 'à¤®à¥à¤', 'ka', 'ki', 'ke', 'à¤à¤¾', 'à¤à¥', 'à¤à¥', 'hai', 'à¤¹à¥', 'à¤¹à¥à¤', 'he', 'mera', 'meri', 'mere', 'à¤®à¥à¤°à¤¾', 'à¤®à¥à¤°à¥', 'à¤®à¥à¤°à¥', 'apna', 'apni', 'apne', 'à¤à¤ªà¤¨à¤¾', 'à¤à¤ªà¤¨à¥', 'à¤à¤ªà¤¨à¥', 'to', 'is', 'as', 'ko', 'à¤à¥', 'please', 'plz', 'ji', 'à¤à¥', 'wapas', 'à¤µà¤¾à¤ªà¤¸', 'dobara', 'à¤¦à¥à¤¬à¤¾à¤°à¤¾', 'phir', 'à¤«à¤¿à¤°', 'se', 'à¤¸à¥', 'aise', 'à¤à¤¸à¥', 'jaise', 'à¤à¥à¤¸à¥', 'wala', 'wali', 'à¤µà¤¾à¤²à¤¾', 'à¤µà¤¾à¤²à¥', 'ye', 'à¤¯à¥', 'à¤¯à¤¹', 'karo', 'à¤à¤°à¥', 'karna', 'à¤à¤°à¤¨à¤¾', 'do', 'à¤¦à¥', 'dijiye', 'à¤¦à¥à¤à¤¿à¤¯à¥', 'hona', 'à¤¹à¥à¤¨à¤¾', 'chahiye', 'à¤à¤¾à¤¹à¤¿à¤', 'the', 'a', 'an', 'my'];
 
-    var MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12, jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12, 'जनवरी': 1, 'फरवरी': 2, 'मार्च': 3, 'अप्रैल': 4, 'मई': 5, 'जून': 6, 'जुलाई': 7, 'अगस्त': 8, 'सितंबर': 9, 'सितम्बर': 9, 'अक्टूबर': 10, 'अक्तूबर': 10, 'नवंबर': 11, 'नवम्बर': 11, 'दिसंबर': 12, 'दिसम्बर': 12 };
+    var MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12, jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12, 'à¤à¤¨à¤µà¤°à¥': 1, 'à¤«à¤°à¤µà¤°à¥': 2, 'à¤®à¤¾à¤°à¥à¤': 3, 'à¤à¤ªà¥à¤°à¥à¤²': 4, 'à¤®à¤': 5, 'à¤à¥à¤¨': 6, 'à¤à¥à¤²à¤¾à¤': 7, 'à¤à¤à¤¸à¥à¤¤': 8, 'à¤¸à¤¿à¤¤à¤à¤¬à¤°': 9, 'à¤¸à¤¿à¤¤à¤®à¥à¤¬à¤°': 9, 'à¤à¤à¥à¤à¥à¤¬à¤°': 10, 'à¤à¤à¥à¤¤à¥à¤¬à¤°': 10, 'à¤¨à¤µà¤à¤¬à¤°': 11, 'à¤¨à¤µà¤®à¥à¤¬à¤°': 11, 'à¤¦à¤¿à¤¸à¤à¤¬à¤°': 12, 'à¤¦à¤¿à¤¸à¤®à¥à¤¬à¤°': 12 };
 
-    var GENDER_MAP = { male: 'male', female: 'female', other: 'other', purush: 'male', mahila: 'female', 'पुरुष': 'male', 'महिला': 'female', stri: 'female', 'स्त्री': 'female', aadmi: 'male', 'आदमी': 'male' };
+    var GENDER_MAP = { male: 'male', female: 'female', other: 'other', purush: 'male', mahila: 'female', 'à¤ªà¥à¤°à¥à¤·': 'male', 'à¤®à¤¹à¤¿à¤²à¤¾': 'female', stri: 'female', 'à¤¸à¥à¤¤à¥à¤°à¥': 'female', aadmi: 'male', 'à¤à¤¦à¤®à¥': 'male' };
 
     function collapse(s) { return s.replace(/\s+/g, ' ').trim(); }
 
     function splitClauses(text) {
-        return text.split(/[,।;\n]|\.\s+|\s+aur\s+|\s+and\s+|\s+और\s+/i)
+        return text.split(/[,à¥¤;\n]|\.\s+|\s+aur\s+|\s+and\s+|\s+à¤à¤°\s+/i)
             .map(collapse)
             .filter(function (c) { return c.length > 0; });
     }
@@ -91,7 +91,7 @@
         return false;
     }
 
-    var EDGE_LABEL_WORDS = ['naam', 'नाम'];
+    var EDGE_LABEL_WORDS = ['naam', 'à¤¨à¤¾à¤®'];
 
     // Words that only ever name a field, built from every alias. Used to drop
     // a leading run of dictated label words from a value - interior words are
@@ -143,7 +143,7 @@
         // Directed commands put the label first, then "mein <value>": keep only
         // the part after the last connector when the front still looks label-ish
         // ("... apartment name me 2A Block 45 bharo" -> "2A Block 45").
-        var conn = /(?:^|\s)(में|मे|मूं|mein|me)\s/g, m, cut = -1, cutEnd = -1;
+        var conn = /(?:^|\s)(à¤®à¥à¤|à¤®à¥|à¤®à¥à¤|mein|me)\s/g, m, cut = -1, cutEnd = -1;
         while ((m = conn.exec(s)) !== null) {
             var afterIdx = conn.lastIndex;
             if (s.slice(afterIdx).trim()) { cut = m.index; cutEnd = afterIdx; }
@@ -333,7 +333,7 @@
     // Split a transcript into bulleted key/value lines plus leftover raw lines.
     function splitLines(text) {
         return text.split(/\n+/).map(function (line) {
-            var m = line.match(/^\s*(?:[-•*–—]\s*)?([A-Za-z][A-Za-z &'/.\-]{0,29}?)\s*:\s+(\S[\s\S]*)$/);
+            var m = line.match(/^\s*(?:[-â¢*ââ]\s*)?([A-Za-z][A-Za-z &'/.\-]{0,29}?)\s*:\s+(\S[\s\S]*)$/);
             if (!m) return { raw: line };
             var k = BULLET_KEYS[m[1].toLowerCase().replace(/\s+/g, ' ').trim()];
             if (!k) return { raw: line };
@@ -343,9 +343,12 @@
 
     // Pull "PIN code ... 148001" out of an address clause so the digits never
     // merge into house/street text.
-    var PIN_IN_CLAUSE = /\b(?:pin\s*code|pincode|zip(?:\s*code)?|postal\s*code|पिन(?:\s*कोड)?)\b[\s\S]{0,15}?(\d{6})\b/i;
+    var PIN_IN_CLAUSE = /\b(?:pin\s*code|pincode|zip(?:\s*code)?|postal\s*code|à¤ªà¤¿à¤¨(?:\s*à¤à¥à¤¡)?)\b[\s\S]{0,15}?(\d{6})\b/i;
 
+    var DEVA_DIGITS = 'à¥¦à¥§à¥¨à¥©à¥ªà¥«à¥¬à¥­à¥®à¥¯';
     function parse(text) {
+        // Wispr can emit Devanagari digits (à¥¦-à¥¯); JS \d only sees ASCII.
+        text = text.replace(/[à¥¦-à¥¯]/g, function (d) { return String(DEVA_DIGITS.indexOf(d)); });
         var fills = [];
         var asks = [];
         var clauses = [];
@@ -381,7 +384,7 @@
                 // right after an address-like value continues that value instead of becoming a question.
                 var last = fills.length ? fills[fills.length - 1] : null;
                 if (r.ask.key === null && last && CONTINUATION_KEYS.indexOf(last.key) !== -1 && !containsVerb(clause)) {
-                    last.value = last.value + ', ' + clause.replace(/[\s.।,]+$/, '');
+                    last.value = last.value + ', ' + clause.replace(/[\s.à¥¤,]+$/, '');
                 } else {
                     asks.push(r.ask);
                 }
