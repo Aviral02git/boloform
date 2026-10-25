@@ -19,7 +19,7 @@
         phone: ['aadhaar', 'aadhar', 'pan', 'account', 'otp', 'alternate', 'emergency'],
         dob: ['issue', 'expiry', 'valid', 'registration'],
         email: ['website'],
-        house: [], street: [], pincode: [], city: [], state: [],
+        house: [], street: [], pincode: [], city: [], state: [], landmark: [], country: [],
         address: ['email', 'web'], gender: [], occupation: [], income: [], purpose: []
     };
 
@@ -36,19 +36,27 @@
         return (s || '').replace(/[_\-.]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().trim();
     }
 
+    // Visible text (label/aria/placeholder) is kept apart from humanized
+    // name/id attributes: negative hints apply only to what the user sees, so
+    // framework ids like "address-ui-widgets-enterAddressFullName" can no longer
+    // disqualify a perfectly good "Full name" field.
     function labelText(el, doc) {
-        var parts = [];
+        var visible = [];
         if (el.id) {
             var lbl = doc.querySelector('label[for="' + el.id.replace(/"/g, '\\"') + '"]');
-            if (lbl) parts.push(lbl.textContent);
+            if (lbl) visible.push(lbl.textContent);
         }
         var wrapping = el.closest('label');
-        if (wrapping) parts.push(wrapping.textContent);
-        if (el.getAttribute('aria-label')) parts.push(el.getAttribute('aria-label'));
-        if (el.getAttribute('placeholder')) parts.push(el.getAttribute('placeholder'));
+        if (wrapping) visible.push(wrapping.textContent);
+        if (el.getAttribute('aria-label')) visible.push(el.getAttribute('aria-label'));
+        if (el.getAttribute('placeholder')) visible.push(el.getAttribute('placeholder'));
+        var parts = visible.slice();
         if (el.name) parts.push(humanize(el.name));
         if (el.id) parts.push(humanize(el.id));
-        return parts.join(' | ').replace(/\s+/g, ' ').toLowerCase().trim();
+        return {
+            all: parts.join(' | ').replace(/\s+/g, ' ').toLowerCase().trim(),
+            visible: visible.join(' | ').replace(/\s+/g, ' ').toLowerCase().trim()
+        };
     }
 
     function isFillable(el) {
@@ -69,7 +77,8 @@
             if (el.closest('#vfh-host')) return;
             var rect = el.getBoundingClientRect();
             var hidden = el.type === 'hidden' || (rect.width === 0 && rect.height === 0 && el.type !== 'hidden');
-            out.push({ el: el, text: labelText(el, doc), fillable: isFillable(el), locked: isLocked(el), hidden: hidden });
+            var lt = labelText(el, doc);
+            out.push({ el: el, text: lt.all, visible: lt.visible, fillable: isFillable(el), locked: isLocked(el), hidden: hidden });
         });
         return out;
     }
@@ -99,7 +108,7 @@
         if (!f.text) return 0;
         var neg = NEGATIVE_HINTS[key] || [];
         for (var i = 0; i < neg.length; i++) {
-            if (hasWord(f.text, neg[i])) return 0;
+            if (hasWord(f.visible, neg[i])) return 0;
         }
         var field = PARSER.FIELDS.find(function (x) { return x.key === key; });
         var best = 0;
