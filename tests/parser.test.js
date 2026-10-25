@@ -135,5 +135,23 @@ check('label word before digit value stripped', fill(r,'house')==='5B');
 r = p.parse('house 5A Extension Road, behind park');
 check('real value with road words intact', fill(r,'house')==='5A Extension Road, behind park');
 
+// --- regression: Amazon add-address pattern (dummy values) ---
+r = p.parse('- Town/city \u092e\u0947\u0902 Rampur \u0921\u093e\u0932\u0928\u093e');
+check('compound Town/city label, city value clean', fill(r,'city')==='Rampur');
+r = p.parse('- Country \u092e\u0947\u0902 India \u0921\u093e\u0932\u0928\u093e');
+check('country directed', fill(r,'country')==='India');
+r = p.parse('- Landmark \u092e\u0947\u0902 near City Hospital \u0921\u093e\u0932\u0928\u093e');
+check('landmark keeps near phrase', fill(r,'landmark')==='near City Hospital');
+r = p.parse('- Landmark: near City Hospital');
+check('bullet landmark', fill(r,'landmark')==='near City Hospital');
+r = p.parse('- Land mark \u092e\u0947\u0902 near City Hospital \u0921\u093e\u0932\u0928\u093e');
+check('land mark variant', fill(r,'landmark')==='near City Hospital');
+r = p.parse('- Land block \u092e\u0947\u0902 near City Hospital \u0921\u093e\u0932\u0928\u093e');
+check('land block asks instead of forcing', !fill(r,'landmark') && r.asks.length===1 && r.asks[0].key==='landmark' && r.asks[0].value==='near City Hospital');
+r = p.parse('street \u092e\u0947\u0902 Town Hall \u0921\u093e\u0932\u0928\u093e');
+check('Town Hall stays whole as a street value', fill(r,'street')==='Town Hall');
+r = p.parse('- Town/city: Rampur');
+check('bullet Town/city compound', fill(r,'city')==='Rampur');
+
 console.log('TOTAL: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
