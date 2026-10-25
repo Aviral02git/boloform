@@ -12,7 +12,7 @@
     // (e.g. "Father's Name" must not catch a plain "name" value).
     var NEGATIVE_HINTS = {
         // "Name" must never land in "House / Flat No / Apartment Name" and vice versa.
-        name: ['father', 'mother', 'spouse', 'pita', 'pitaji', 'à¤ªà¤¿à¤¤à¤¾', 'à¤®à¤¾à¤¤à¤¾', 'husband', 'wife', 'contact',
+        name: ['father', 'mother', 'spouse', 'pita', 'pitaji', 'पिता', 'माता', 'husband', 'wife', 'contact',
                'house', 'flat', 'apartment', 'street', 'area', 'locality', 'landmark', 'pincode', 'pin',
                'city', 'state', 'address', 'shop', 'store', 'company', 'business'],
         father: ['mother', 'spouse'],
