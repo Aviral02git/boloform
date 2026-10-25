@@ -1,0 +1,241 @@
+/* Voice Form Helper - transcript parser.
+   Rule-based, bilingual (Hindi/Hinglish/English). Turns one dictated message into
+   field-value pairs, in any order, plus "ask" items for anything unclear.
+   No network, no dependencies. Works in the browser (window.VFHParser) and Node. */
+(function (root, factory) {
+    var api = factory();
+    root.VFHParser = api;
+    if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof self !== 'undefined' ? self : globalThis, function () {
+
+    var FIELDS = [
+        { key: 'name', label: 'Name', aliases: ['full name', 'applicant name', 'name', 'naam', 'नाम'] },
+        { key: 'father', label: "Father's name", aliases: ["father's name", 'father name', 'father', 'pita', 'pitaji', 'पिताजी', 'पिता'] },
+        { key: 'dob', label: 'Date of birth', aliases: ['date of birth', 'janm tithi', 'janam tithi', 'जन्म तिथि', 'dob', 'birth'] },
+        { key: 'gender', label: 'Gender', aliases: ['gender', 'ling', 'लिंग', 'sex'] },
+        { key: 'address', label: 'Address', aliases: ['address', 'pata', 'पता', 'residence', 'पताए'] },
+        { key: 'occupation', label: 'Occupation', aliases: ['occupation', 'pesha', 'पेशा', 'kaam', 'काम', 'profession'] },
+        { key: 'income', label: 'Annual income', aliases: ['annual income', 'varshik aay', 'वार्षिक आय', 'income', 'aay', 'आय', 'salary'] },
+        { key: 'house', label: 'House / Flat', aliases: ['house flat', 'flat no', 'house no', 'apartment name', 'apartment', 'house', 'flat', 'makan', 'मकान'] },
+        { key: 'street', label: 'Street / Area', aliases: ['street', 'area', 'gali', 'गली', 'स्ट्रीट', 'एरिया', 'colony'] },
+        { key: 'pincode', label: 'PIN code', aliases: ['pincode', 'pin code', 'पिन कोड', 'पिन', 'pin', 'zip'] },
+        { key: 'city', label: 'City', aliases: ['city', 'sheher', 'shahar', 'शहर'] },
+        { key: 'state', label: 'State', aliases: ['state', 'rajya', 'राज्य'] },
+        { key: 'purpose', label: 'Purpose', aliases: ['purpose', 'udeshya', 'उद्देश्य', 'kaaran', 'कारण'] },
+        { key: 'phone', label: 'Phone', aliases: ['phone number', 'mobile number', 'phone', 'mobile', 'फोन', 'मोबाइल', 'contact number', 'संपर्क', 'number'] },
+        { key: 'email', label: 'Email', aliases: ['email', 'e-mail', 'ईमेल', 'ई-मेल', 'mail'] }
+    ];
+
+    var VERBS_LATIN = ['bhar dijiye', 'bhar do', 'bharna', 'bhariye', 'bharo', 'daal dijiye', 'daal do', 'daalo', 'daal', 'likh dijiye', 'likh do', 'likho', 'likhna', 'fill karo', 'fill in', 'fill', 'set karo', 'set', 'badal do', 'badlo', 'update karo', 'update', 'daalna', 'likhna'];
+    var VERBS_DEVA = ['भर दीजिये', 'भर दो', 'भरिए', 'भरना', 'भरो', 'डाल दीजिये', 'डाल दो', 'डालो', 'डालना', 'लिख दीजिये', 'लिख दो', 'लिखना', 'लिखो', 'बदल दो', 'बदलो'];
+
+    var STOP_TOKENS = ['field', 'column', 'box', 'me', 'mein', 'में', 'मे', 'ka', 'ki', 'ke', 'का', 'की', 'के', 'hai', 'है', 'हैं', 'he', 'mera', 'meri', 'mere', 'मेरा', 'मेरी', 'मेरे', 'apna', 'apni', 'apne', 'अपना', 'अपनी', 'अपने', 'to', 'is', 'as', 'ko', 'को', 'please', 'plz', 'ji', 'जी', 'wapas', 'वापस', 'dobara', 'दोबारा', 'phir', 'फिर', 'se', 'से', 'aise', 'ऐसे', 'jaise', 'जैसे', 'wala', 'wali', 'वाला', 'वाली', 'ye', 'ये', 'यह', 'karo', 'करो', 'karna', 'करना', 'do', 'दो', 'dijiye', 'दीजिये', 'hona', 'होना', 'chahiye', 'चाहिए', 'the', 'a', 'an', 'my'];
+
+    var MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12, jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12, 'जनवरी': 1, 'फरवरी': 2, 'मार्च': 3, 'अप्रैल': 4, 'मई': 5, 'जून': 6, 'जुलाई': 7, 'अगस्त': 8, 'सितंबर': 9, 'सितम्बर': 9, 'अक्टूबर': 10, 'अक्तूबर': 10, 'नवंबर': 11, 'नवम्बर': 11, 'दिसंबर': 12, 'दिसम्बर': 12 };
+
+    var GENDER_MAP = { male: 'male', female: 'female', other: 'other', purush: 'male', mahila: 'female', 'पुरुष': 'male', 'महिला': 'female', stri: 'female', 'स्त्री': 'female', aadmi: 'male', 'आदमी': 'male' };
+
+    function collapse(s) { return s.replace(/\s+/g, ' ').trim(); }
+
+    function splitClauses(text) {
+        return text.split(/[,।;\n]|\.\s+|\s+aur\s+|\s+and\s+|\s+और\s+/i)
+            .map(collapse)
+            .filter(function (c) { return c.length > 0; });
+    }
+
+    function findField(clause) {
+        var lower = clause.toLowerCase();
+        var best = null;
+        FIELDS.forEach(function (f) {
+            f.aliases.forEach(function (a) {
+                var idx = lower.indexOf(a.toLowerCase());
+                if (idx === -1) return;
+                // For latin aliases, require word-ish boundaries to avoid "naam" inside other words.
+                if (/^[a-z]/.test(a)) {
+                    var before = idx === 0 ? ' ' : lower.charAt(idx - 1);
+                    var after = idx + a.length >= lower.length ? ' ' : lower.charAt(idx + a.length);
+                    if (/[a-z]/.test(before) || /[a-z]/.test(after)) return;
+                }
+                if (!best || idx < best.idx || (idx === best.idx && a.length > best.alias.length)) {
+                    best = { field: f, idx: idx, alias: a };
+                }
+            });
+        });
+        return best;
+    }
+
+    function stripVerbs(s) {
+        VERBS_LATIN.forEach(function (v) {
+            s = s.replace(new RegExp('\\b' + v.replace(/ /g, '\\s+') + '\\b', 'gi'), ' ');
+        });
+        VERBS_DEVA.forEach(function (v) {
+            s = s.split(v).join(' ');
+        });
+        return s;
+    }
+
+    function cleanValue(raw, matchedAlias) {
+        var s = raw.replace(matchedAlias, ' ');
+        s = stripVerbs(s);
+        // Drop every field alias anywhere (e.g. "pita ka naam X" -> after removing "pita", drop "naam").
+        FIELDS.forEach(function (f) {
+            f.aliases.forEach(function (a) {
+                if (/^[a-z]/.test(a)) {
+                    s = s.replace(new RegExp('\\b' + a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+') + '\\b', 'gi'), ' ');
+                } else {
+                    s = s.split(a).join(' ');
+                }
+            });
+        });
+        s = s.replace(/[:=]+/g, ' ');
+        // Strip dashes/slashes only when not between digits (keep dates and numbers intact).
+        s = s.replace(/(?<!\d)[\/\-]|[\/\-](?!\d)/g, ' ');
+        var tokens = s.split(/\s+/).filter(function (t) {
+            if (!t) return false;
+            var bare = t.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, '');
+            if (!bare) return false;
+            if (STOP_TOKENS.indexOf(bare.toLowerCase()) !== -1) return false;
+            return true;
+        }).map(function (t) { return t.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}.,/@]+$/gu, ''); });
+        // restore date slashes stripped above: re-check original for a date pattern first (handled in validate)
+        return collapse(tokens.join(' ').replace(/\s*([.,/@])\s*/g, '$1'));
+    }
+
+    function validateName(v) {
+        if (v.length < 2) return { ok: false, question: 'Naam samajh nahi aaya. Dobara bolna: poora naam kya hai?' };
+        if (/\d/.test(v)) return { ok: false, question: 'Naam me number aa gaya ("' + v + '"). Sahi naam bolna ya type karna.' };
+        return { ok: true, value: v };
+    }
+
+    function validatePhone(v) {
+        var digits = v.replace(/\D/g, '');
+        if (digits.length === 10) return { ok: true, value: digits };
+        if (digits.length === 12 && digits.indexOf('91') === 0) return { ok: true, value: digits.slice(2) };
+        if (digits.length > 0) return { ok: false, question: 'Phone number adhura lag raha hai ("' + digits + '" - sirf ' + digits.length + ' digits). Poora 10-digit number bolna ya type karna.' };
+        return { ok: false, question: 'Phone number nahi mila. 10-digit number bolna ya type karna.' };
+    }
+
+    function validateDob(v, rawClause) {
+        var m = v.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+        if (!m && rawClause) {
+            var rm = rawClause.toLowerCase().match(/(\d{1,2})\s*([a-z\u0900-\u097F]+)\s*(\d{4})/);
+            if (rm && MONTHS[rm[2]]) m = [rm[0], rm[1], String(MONTHS[rm[2]]), rm[3]];
+        }
+        if (!m) return { ok: false, question: 'Date of birth ka format clear nahi hua. DD/MM/YYYY me bolna, jaise 21/11/2001.' };
+        var d = m[1].padStart(2, '0');
+        var mo = m[2].padStart(2, '0');
+        var y = m[3].length === 2 ? '19' + m[3] : m[3];
+        var dd = parseInt(d, 10), mm = parseInt(mo, 10), yy = parseInt(y, 10);
+        if (dd < 1 || dd > 31 || mm < 1 || mm > 12 || yy < 1900 || yy > 2100) {
+            return { ok: false, question: 'Ye date valid nahi lagti ("' + d + '/' + mo + '/' + y + '"). Dobara bolna, DD/MM/YYYY me.' };
+        }
+        return { ok: true, value: d + '/' + mo + '/' + y };
+    }
+
+    function validateGender(v) {
+        var lower = v.toLowerCase();
+        var keys = Object.keys(GENDER_MAP).sort(function (a, b) { return b.length - a.length; });
+        for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            if (/^[a-z]/.test(k)) {
+                if (new RegExp('\\b' + k + '\\b').test(lower)) return { ok: true, value: GENDER_MAP[k] };
+            } else if (lower.indexOf(k) !== -1) {
+                return { ok: true, value: GENDER_MAP[k] };
+            }
+        }
+        return { ok: false, question: 'Gender samajh nahi aaya ("' + v + '"). male / female / other bolna.' };
+    }
+
+    function validateEmail(v) {
+        var m = v.replace(/\s+/g, '').match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+        if (m) return { ok: true, value: m[0] };
+        return { ok: false, question: 'Email valid nahi lagta ("' + v + '"). Dobara bolna ya type karna.' };
+    }
+
+    function validatePincode(v) {
+        var digits = v.replace(/\D/g, '');
+        if (digits.length === 6) return { ok: true, value: digits };
+        if (digits.length > 0) return { ok: false, question: 'PIN code 6 digits ka hota hai; "' + digits + '" adhura ya galat lag raha hai. Poora PIN bolna ya type karna - guess karke nahi bharenge.' };
+        return { ok: false, question: 'PIN code nahi mila. 6-digit PIN bolna ya type karna.' };
+    }
+
+    function validateAny(v, fieldLabel) {
+        if (v.length < 1) return { ok: false, question: fieldLabel + ' ke liye value nahi mili. Dobara bolna.' };
+        return { ok: true, value: v };
+    }
+
+    function validate(fieldKey, value, rawClause) {
+        switch (fieldKey) {
+            case 'name': case 'father': return validateName(value);
+            case 'phone': return validatePhone(value);
+            case 'dob': return validateDob(value, rawClause);
+            case 'gender': return validateGender(value);
+            case 'email': return validateEmail(value);
+            case 'pincode': return validatePincode(value);
+            default: return validateAny(value, fieldKey);
+        }
+    }
+
+    function containsVerb(clause) {
+        var lower = clause.toLowerCase();
+        for (var i = 0; i < VERBS_LATIN.length; i++) {
+            if (new RegExp('\\b' + VERBS_LATIN[i].replace(/ /g, '\\s+') + '\\b').test(lower)) return true;
+        }
+        for (var j = 0; j < VERBS_DEVA.length; j++) {
+            if (clause.indexOf(VERBS_DEVA[j]) !== -1) return true;
+        }
+        return false;
+    }
+
+    function parseClause(clause) {
+        var hit = findField(clause);
+        if (!hit) {
+            // Bare-number shortcuts: a standalone 6-digit reads as PIN, 10-digit as phone.
+            var bare = clause.replace(/[.\s-]/g, '');
+            if (/^\d{6}$/.test(bare)) {
+                return { fill: { key: 'pincode', label: 'PIN code', value: bare } };
+            }
+            if (/^\d{10}$/.test(bare)) {
+                return { fill: { key: 'phone', label: 'Phone', value: bare } };
+            }
+            return { ask: { key: null, clause: clause, question: 'Ye line kisi field se match nahi hui: "' + clause + '". Field ka naam bata ke dobara bolna, jaise "name field me ... bhar do".' } };
+        }
+        var value = cleanValue(clause.toLowerCase() === clause ? clause : clause, hit.alias);
+        // cleanValue keeps original case; but matching is case-insensitive so remove alias regardless of case:
+        if (value === clause) {
+            value = cleanValue(clause.replace(new RegExp(hit.alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), ' '), hit.alias);
+        }
+        if (!value) {
+            return { ask: { key: hit.field.key, clause: clause, question: hit.field.label + ' ke liye value nahi mili. Dobara bolna, jaise "' + hit.field.label + ' me ... bhar do".' } };
+        }
+        var check = validate(hit.field.key, value, clause);
+        if (!check.ok) {
+            return { ask: { key: hit.field.key, clause: clause, question: check.question } };
+        }
+        return { fill: { key: hit.field.key, label: hit.field.label, value: check.value } };
+    }
+
+    var CONTINUATION_KEYS = ['house', 'street', 'address'];
+
+    function parse(text) {
+        var fills = [];
+        var asks = [];
+        splitClauses(text).forEach(function (clause) {
+            var r = parseClause(clause);
+            if (r.fill) fills.push(r.fill);
+            else if (r.ask) {
+                // "5A Extension Road, behind park" style: a verb-free fragment with no field name
+                // right after an address-like value continues that value instead of becoming a question.
+                var last = fills.length ? fills[fills.length - 1] : null;
+                if (r.ask.key === null && last && CONTINUATION_KEYS.indexOf(last.key) !== -1 && !containsVerb(clause)) {
+                    last.value = last.value + ', ' + clause.replace(/[\s.।,]+$/, '');
+                } else {
+                    asks.push(r.ask);
+                }
+            }
+        });
+        return { fills: fills, asks: asks };
+    }
+
+    return { parse: parse, FIELDS: FIELDS };
+});
