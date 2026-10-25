@@ -51,7 +51,7 @@ screenshot proves which build is loaded.
 ## Get Wispr Flow
 
 BoloForm uses [Wispr Flow](https://wisprflow.ai) for voice input. If you do
-not have it yet, you can download it through the author's referral link:
+not have it yet, you can download it through the link:
 <https://wisprflow.ai/r?AVIRAL283>
 
 ## Install (local, unpacked)
