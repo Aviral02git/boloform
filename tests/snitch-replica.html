@@ -93,6 +93,9 @@
   var planDash = window.VFHMatcher.planFromTranscript('house 2A-45', document);
   var dashItem = planDash.items.find(function (i) { return i.key === 'house'; });
   line(dashItem && dashItem.value === '2A-45', 'house ID keeps its dash: "' + (dashItem && dashItem.value) + '"');
+  var planLbl = window.VFHMatcher.planFromTranscript('- House flat number/apartment number: 2A-45', document);
+  var lblItem = planLbl.items.find(function (i) { return i.key === 'house'; });
+  line(lblItem && lblItem.value === '2A-45' && lblItem.el === house, 'composite dictated label stripped, only the ID remains: "' + (lblItem && lblItem.value) + '"');
   line(tel.value === '9876501234', 'phone filled in +91 input, got "' + tel.value + '"');
   line(city.value === 'Ludhiana' && report.locked.length === 2, 'readonly City/State locked and skipped, locked=' + report.locked.length);
   var oldHouse = report.filled.find(function (f) { return f.key === 'house'; });
@@ -113,7 +116,7 @@
   if (!hostEl) { summary(); return; }
   var sh = hostEl.shadowRoot;
   var title = sh.querySelector('.vfh-title');
-  line(title && /v0\.2\.1/.test(title.textContent), 'panel shows running version marker: "' + (title && title.textContent) + '"');
+  line(title && /v0\.2\.2/.test(title.textContent), 'panel shows running version marker: "' + (title && title.textContent) + '"');
   var ta = sh.querySelector('textarea');
   ta.value = 'Phone number \u092e\u0947\u0902 9876501234';
   house.value = ''; street.value = ''; pin.value = ''; name.value = ''; tel.value = '';
