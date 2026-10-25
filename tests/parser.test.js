@@ -99,5 +99,19 @@ check('street without pin digits', fill(r,'street') && fill(r,'street').indexOf(
 r = p.parse('PIN code 4: 209625');
 check('stray digit before pin rescued', fill(r,'pincode')==='209625');
 
+// --- regression: second real-site failure (full directed bullet transcript, dummy values) ---
+r = p.parse('- House flat number apartment name में 2A Block 45 भरो\n- Street area में Shanti का Colony\n- Pin code में 148001\n- City Rampura\n- State में Punjab\n- Name में Rahul Sharma\n- Phone number में 9876501234');
+check('directed long house label', fill(r,'house')==='2A Block 45');
+check('street keeps ka and colony', fill(r,'street')==='Shanti का Colony');
+check('directed pincode', fill(r,'pincode')==='148001');
+check('city without connector', fill(r,'city')==='Rampura');
+check('directed state', fill(r,'state')==='Punjab');
+check('directed name', fill(r,'name')==='Rahul Sharma');
+check('directed phone', fill(r,'phone')==='9876501234');
+check('full transcript no asks', r.asks.length===0);
+
+r = p.parse('street Green Colony');
+check('colony in value preserved', fill(r,'street')==='Green Colony');
+
 console.log('TOTAL: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
