@@ -42,7 +42,7 @@ the point of speaking.
 6. BoloForm never submits anything. You review the highlighted fields and
    submit yourself.
 
-The panel header always shows the running version (e.g. `v0.2.3`) so a
+The panel header always shows the running version (e.g. `v0.2.4`) so a
 screenshot proves which build is loaded.
 ![One spoken sentence fills six fields, each highlighted](docs/vfh-panel-filled.png)
 
@@ -51,7 +51,7 @@ screenshot proves which build is loaded.
 ## Get Wispr Flow
 
 BoloForm uses [Wispr Flow](https://wisprflow.ai) for voice input. If you do
-not have it yet, you can download it through the link:
+not have it yet, you can download it through the author's referral link:
 <https://wisprflow.ai/r?AVIRAL283>
 
 ## Install (local, unpacked)
