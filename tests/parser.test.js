@@ -113,5 +113,13 @@ check('full transcript no asks', r.asks.length===0);
 r = p.parse('street Green Colony');
 check('colony in value preserved', fill(r,'street')==='Green Colony');
 
+// --- regression: house/flat ID separators must survive as dictated ---
+r = p.parse('- House number में भरो: 2A/45');
+check('house slash ID kept', fill(r,'house')==='2A/45');
+r = p.parse('house 2A-45');
+check('house dash ID kept', fill(r,'house')==='2A-45');
+r = p.parse('street Omaxe-2 Colony');
+check('street hyphen kept', fill(r,'street')==='Omaxe-2 Colony');
+
 console.log('TOTAL: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
