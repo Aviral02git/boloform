@@ -84,11 +84,15 @@
             // Sites often mark the phone box with a +91 chip or a numeric sample placeholder.
             var ph = (f.el.getAttribute('placeholder') || '').trim();
             if (/^[\d\s()+-]{9,}$/.test(ph)) return 90;
-            var sibs = f.el.parentElement ? f.el.parentElement.children : [];
-            for (var s = 0; s < sibs.length; s++) {
-                if (sibs[s] === f.el) continue;
-                if (sibs[s].querySelector && sibs[s].querySelector('input,textarea,select')) continue;
-                if (/^\+?\s?91[\s-]*$/.test((sibs[s].textContent || '').trim())) return 90;
+            // Only an immediately adjacent "+91" chip marks the phone box - in a
+            // flat form the chip is a sibling of EVERY field and would otherwise
+            // pull phone values onto pincode/name inputs.
+            var neighbours = [f.el.previousElementSibling, f.el.nextElementSibling];
+            for (var s = 0; s < neighbours.length; s++) {
+                var sib = neighbours[s];
+                if (!sib) continue;
+                if (sib.querySelector && sib.querySelector('input,textarea,select')) continue;
+                if (/^\+?\s?91[\s-]*$/.test((sib.textContent || '').trim())) return 90;
             }
         }
         if (key === 'email' && (f.el.getAttribute('type') || '').toLowerCase() === 'email') return 100;
