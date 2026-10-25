@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Voice Form Helper (Wispr demo)",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Wispr se boli hui details ko khule form ke sahi fields me bharta hai. Kuch submit nahi karta.",
   "permissions": [
     "activeTab",
