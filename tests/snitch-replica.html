@@ -15,7 +15,6 @@
   #results{max-width:460px;margin-top:22px;font-size:13px}
   #results .pass{color:#2f7a67}#results .fail{color:#b3261e;font-weight:600}
   #results div{padding:2px 0}
-  .vfh-highlight{outline:2px solid #2f7a67 !important;background:#eef6f3 !important}
 </style>
 </head>
 <body>
@@ -28,14 +27,16 @@
   <label for="rstate">State</label><input id="rstate" type="text" value="Punjab" readonly>
   <input type="text" placeholder="Name" aria-label="Name">
   <label>Phone</label>
-  <div class="phone"><span class="cc">+91</span><input type="tel" autocomplete="tel-national"></div>
+  <div class="phone"><span class="cc">+91</span><input type="text" placeholder="1234567890"></div>
 </div>
 <div id="results"></div>
 
 <script src="../parser.js"></script>
 <script src="../matcher.js"></script>
+<script src="../content.js"></script>
 <script>
 (function () {
+  var stage = new URLSearchParams(location.search).get('stage') || 'full';
   var out = document.getElementById('results');
   var pass = 0, fail = 0;
   function line(ok, name) {
@@ -45,48 +46,95 @@
     out.appendChild(d);
     ok ? pass++ : fail++;
   }
+  function summary() {
+    var sum = document.createElement('div');
+    sum.className = fail ? 'fail' : 'pass';
+    sum.style.marginTop = '10px';
+    sum.style.fontWeight = '700';
+    sum.textContent = 'DOM TEST: ' + pass + ' passed, ' + fail + ' failed';
+    out.appendChild(sum);
+    document.title = fail ? 'FAIL' : 'PASS';
+  }
   function inp(ph) { return document.querySelector('input[placeholder="' + ph + '"]'); }
   var house = inp('House / Flat No / Apartment Name'), street = inp('Street / Area'),
-      pin = inp('Pincode'), name = inp('Name'), tel = document.querySelector('input[type=tel]');
+      pin = inp('Pincode'), name = inp('Name'),
+      tel = document.querySelector('.phone input'),
+      city = document.getElementById('rcity');
 
-  // Scenario 1: the original failure. Pre-existing house value must NOT be overwritten by Name.
-  house.value = '9B'; // user had already typed a house number
-  var t1 = '- House: 452A\n- Street: Model Town Phase 2\n- PIN: 148001\n- Name: Rahul Sharma\n- Phone number: 9876501234';
-  var r1 = window.VFHMatcher.fillFromTranscript(t1, document);
+  var TRANSCRIPT = '- House flat number apartment name \u092e\u0947\u0902 2A Block 45 \u092d\u0930\u094b\n- Street area \u092e\u0947\u0902 Shanti \u0915\u093e Colony\n- Pin code \u092e\u0947\u0902 148001\n- City Rampura\n- State \u092e\u0947\u0902 Punjab\n- Name \u092e\u0947\u0902 Rahul Sharma\n- Phone number \u092e\u0947\u0902 9876501234';
+
+  // --- Plan stage: preview must not write anything ---
+  house.value = '9B'; // pre-existing user value
+  var plan = window.VFHMatcher.planFromTranscript(TRANSCRIPT, document);
+  line(house.value === '9B' && name.value === '' && tel.value === '', 'plan stage writes nothing to the page');
+  line(plan.items.length === 7 && plan.hasWrites, 'all 7 details planned, items=' + plan.items.length);
+  var nameItem = plan.items.find(function (i) { return i.key === 'name'; });
+  line(nameItem && nameItem.fieldLabel === 'name', 'name maps to the Name field, got "' + (nameItem && nameItem.fieldLabel) + '"');
+  var houseItem = plan.items.find(function (i) { return i.key === 'house'; });
+  line(houseItem && houseItem.fieldLabel.indexOf('apartment') !== -1, 'house maps to the house field');
+  line(houseItem && houseItem.oldValue === '9B', 'pre-existing house value captured for preview: ' + (houseItem && houseItem.oldValue));
+  var phoneItem = plan.items.find(function (i) { return i.key === 'phone'; });
+  line(phoneItem && phoneItem.status === 'write', 'digit-placeholder +91 phone input found, status=' + (phoneItem && phoneItem.status));
+  var streetItem = plan.items.find(function (i) { return i.key === 'street'; });
+  line(streetItem && streetItem.value === 'Shanti \u0915\u093e Colony', 'street value keeps "\u0915\u093e Colony": "' + (streetItem && streetItem.value) + '"');
+
+  // --- Apply stage: approved write lands correctly ---
+  var report = window.VFHMatcher.applyPlan(plan);
   line(name.value === 'Rahul Sharma', 'name lands in the Name field, got "' + name.value + '"');
-  line(house.value === '452A', 'house field holds directed house value, got "' + house.value + '"');
-  line(street.value === 'Model Town Phase 2', 'street field filled, got "' + street.value + '"');
-  line(pin.value === '148001', 'pincode field filled, got "' + pin.value + '"');
-  line(tel.value === '9876501234', 'unlabeled +91 tel input found structurally, got "' + tel.value + '"');
-  var oldHouse = r1.filled.find(function (f) { return f.key === 'house'; });
-  line(oldHouse && oldHouse.oldValue === '9B', 'pre-existing house value reported as oldValue: ' + (oldHouse && oldHouse.oldValue));
+  line(house.value === '2A Block 45', 'house field holds directed house value, got "' + house.value + '"');
+  line(street.value === 'Shanti \u0915\u093e Colony', 'street field holds full value, got "' + street.value + '"');
+  line(pin.value === '148001', 'pincode filled');
+  line(tel.value === '9876501234', 'phone filled in +91 input, got "' + tel.value + '"');
+  line(city.value === 'Ludhiana' && report.locked.length === 2, 'readonly City/State locked and skipped, locked=' + report.locked.length);
+  var oldHouse = report.filled.find(function (f) { return f.key === 'house'; });
+  line(oldHouse && oldHouse.oldValue === '9B', 'replaced house value reported with previous value: ' + (oldHouse && oldHouse.oldValue));
 
-  // Scenario 2: two values for one detail in one message -> ask, keep first, no overwrite.
-  var r2 = window.VFHMatcher.fillFromTranscript('flat 7B, house 5A', document);
-  line(house.value === '7B', 'first of two conflicting values applied, got "' + house.value + '"');
-  line(r2.asks.length === 1, 'second conflicting value asks instead of overwriting, asks=' + r2.asks.length);
-  line(r2.asks.length === 1 && r2.asks[0].value === '5A', 'ask carries the skipped value for manual pick');
+  // --- Conflict: two values for one detail -> ask, no write ---
+  var plan2 = window.VFHMatcher.planFromTranscript('flat 7B, house 5A', document);
+  line(plan2.asks.length === 1 && plan2.items.length === 1, 'same-key conflict asks once, asks=' + plan2.asks.length);
+  line(plan2.asks.length === 1 && plan2.asks[0].value === '5A', 'ask carries the skipped value for manual pick');
+  var r2 = window.VFHMatcher.applyPlan(plan2);
+  line(house.value === '7B' && r2.filled.length === 1, 'only the first conflicting value applied, got "' + house.value + '"');
   window.VFHMatcher.clearHighlights(document);
 
-  // Scenario 3: readonly City/State stay untouched.
-  var r3 = window.VFHMatcher.fillFromTranscript('city Patiala, state Haryana', document);
-  var city = document.querySelectorAll('input[readonly]')[0];
-  line(city.value === 'Ludhiana' && r3.locked.length === 2, 'readonly City/State locked and skipped, locked=' + r3.locked.length);
+  // --- Full panel flow: toolbar-injected code path (same bytes), preview first ---
+  window.dispatchEvent(new Event('vfh:toggle'));
+  var hostEl = document.getElementById('vfh-host');
+  line(!!hostEl && !!hostEl.shadowRoot, 'panel injects into the page');
+  if (!hostEl) { summary(); return; }
+  var sh = hostEl.shadowRoot;
+  var title = sh.querySelector('.vfh-title');
+  line(title && /v0\.2\.0/.test(title.textContent), 'panel shows running version marker: "' + (title && title.textContent) + '"');
+  var ta = sh.querySelector('textarea');
+  ta.value = 'Phone number \u092e\u0947\u0902 9876501234';
+  house.value = ''; street.value = ''; pin.value = ''; name.value = ''; tel.value = '';
+  var buttons = sh.querySelectorAll('button');
+  var fillBtn = Array.prototype.find.call(buttons, function (b) { return b.textContent === 'Form bharo'; });
+  fillBtn.click();
+  var previewHead = sh.querySelector('.vfh-plan-h');
+  line(!!previewHead, 'preview shown after Form bharo');
+  line(tel.value === '', 'preview did not write the phone field yet');
+  if (stage === 'preview') { summary(); return; } // screenshot stops here, preview visible
 
-  // Scenario 4: manual field binding (fillElement) - the "Field chuno" fallback.
-  var r4 = window.VFHMatcher.fillElement(pin, '160055');
-  line(r4.ok && pin.value === '160055', 'manual field pick fills chosen field, got "' + pin.value + '"');
-  line(r4.oldValue === '148001', 'manual pick reports previous value: ' + r4.oldValue);
-  var r5 = window.VFHMatcher.fillElement(city, 'Ambala');
-  line(!r5.ok && city.value === 'Ludhiana', 'manual pick refuses locked field: ' + r5.reason);
+  var confirmBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Sahi hai, bharo'; });
+  line(!!confirmBtn, 'confirm button present in preview');
+  confirmBtn.click();
+  line(tel.value === '9876501234', 'confirm writes the phone field, got "' + tel.value + '"');
+  var doneLine = Array.prototype.find.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('me bhara: 9876501234') !== -1; });
+  line(!!doneLine, 'results list the approved fill');
 
-  var sum = document.createElement('div');
-  sum.className = fail ? 'fail' : 'pass';
-  sum.style.marginTop = '10px';
-  sum.style.fontWeight = '700';
-  sum.textContent = 'DOM TEST: ' + pass + ' passed, ' + fail + ' failed';
-  out.appendChild(sum);
-  document.title = fail ? 'FAIL' : 'PASS';
+  // --- Field chuno through real clicks: unmatched detail -> user picks the field ---
+  ta.value = 'occupation \u092e\u0947\u0902 Engineer';
+  fillBtn.click();
+  var pickBtn = Array.prototype.find.call(sh.querySelectorAll('button.vfh-pick'), function (b) { return !b.disabled; });
+  line(!!pickBtn, 'Field chuno offered for unmatched detail');
+  if (pickBtn) {
+    pickBtn.click();
+    street.click(); // user points at the street field
+    line(street.value === 'Engineer', 'picked field receives the value, got "' + street.value + '"');
+  }
+
+  summary();
 })();
 </script>
 </body>
