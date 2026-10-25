@@ -81,6 +81,15 @@
             var t = (f.el.getAttribute('type') || '').toLowerCase();
             var ac = (f.el.getAttribute('autocomplete') || '').toLowerCase();
             if (t === 'tel' || ac === 'tel' || ac === 'tel-national') return 100;
+            // Sites often mark the phone box with a +91 chip or a numeric sample placeholder.
+            var ph = (f.el.getAttribute('placeholder') || '').trim();
+            if (/^[\d\s()+-]{9,}$/.test(ph)) return 90;
+            var sibs = f.el.parentElement ? f.el.parentElement.children : [];
+            for (var s = 0; s < sibs.length; s++) {
+                if (sibs[s] === f.el) continue;
+                if (sibs[s].querySelector && sibs[s].querySelector('input,textarea,select')) continue;
+                if (/^\+?\s?91[\s-]*$/.test((sibs[s].textContent || '').trim())) return 90;
+            }
         }
         if (key === 'email' && (f.el.getAttribute('type') || '').toLowerCase() === 'email') return 100;
         if (!f.text) return 0;
@@ -135,12 +144,22 @@
         });
     }
 
+    function findOption(el, value) {
+        var lower = value.toLowerCase();
+        return Array.prototype.find.call(el.options, function (o) {
+            return o.value.toLowerCase() === lower || o.textContent.toLowerCase().indexOf(lower) !== -1;
+        });
+    }
+
+    // Read-only check: can this value be written without actually writing it?
+    function canSetValue(el, value) {
+        if (el.tagName.toLowerCase() !== 'select') return true;
+        return !!findOption(el, value);
+    }
+
     function setValue(el, value) {
         if (el.tagName.toLowerCase() === 'select') {
-            var lower = value.toLowerCase();
-            var opt = Array.prototype.find.call(el.options, function (o) {
-                return o.value.toLowerCase() === lower || o.textContent.toLowerCase().indexOf(lower) !== -1;
-            });
+            var opt = findOption(el, value);
             if (opt) el.value = opt.value; else return false;
         } else {
             el.value = value;
@@ -151,47 +170,73 @@
         return true;
     }
 
-    function fillFromTranscript(text, doc) {
+    // Preview-first flow: compute the full field/value mapping WITHOUT writing.
+    // Items carry status: 'write' (el set, will fill on approval), 'locked',
+    // 'notfound'. Conflicts and dropdown misses become asks before any write.
+    function planFromTranscript(text, doc) {
         doc = doc || document;
         var parsed = PARSER.parse(text);
-        var report = { filled: [], notFound: [], locked: [], asks: parsed.asks };
-        var firstEl = null;
-        var claimed = []; // {el, key, label, value} written in THIS run
+        var plan = { items: [], asks: parsed.asks.slice(), hasWrites: false };
+        var claimed = []; // {el, key, label, value} planned in THIS run
         parsed.fills.forEach(function (fill) {
             var m = matchField(fill.key, doc);
             if (m && m.el) {
                 var shortLabel = m.label.split('|')[0].trim();
-                // Never silently overwrite: two different details mapping to one field
-                // is a mapping doubt, so ask instead of picking one.
                 var prev = null;
                 for (var c = 0; c < claimed.length; c++) { if (claimed[c].el === m.el) { prev = claimed[c]; break; } }
                 if (prev && prev.key !== fill.key) {
-                    report.asks.push({ key: fill.key, label: fill.label, value: fill.value, question: '"' + prev.label + '" ("' + prev.value + '") aur "' + fill.label + '" ("' + fill.value + '") dono ek hi field pe map hue ("' + shortLabel + '"). Maine kuch nahi badla - "Field chuno" se sahi field khud choose kar sakte ho, ya field ka naam de ke dobara bolo.' });
+                    plan.asks.push({ key: fill.key, label: fill.label, value: fill.value, question: '"' + prev.label + '" ("' + prev.value + '") aur "' + fill.label + '" ("' + fill.value + '") dono ek hi field pe map hue ("' + shortLabel + '"). "Field chuno" se sahi field khud choose kar sakte ho, ya field ka naam de ke dobara bolo.' });
                     return;
                 }
                 if (prev && prev.value !== fill.value) {
-                    report.asks.push({ key: fill.key, label: fill.label, value: fill.value, question: fill.label + ' ke liye ek hi message me do alag values aaye: "' + prev.value + '" aur "' + fill.value + '". Abhi "' + prev.value + '" rakha hai - doosri chahiye to "Field chuno" ya field ka naam de ke dobara bolo.' });
+                    plan.asks.push({ key: fill.key, label: fill.label, value: fill.value, question: fill.label + ' ke liye ek hi message me do alag values aaye: "' + prev.value + '" aur "' + fill.value + '". Pehli wali preview me hai - doosri chahiye to "Field chuno" ya field ka naam de ke dobara bolo.' });
                     return;
                 }
                 if (prev) return;
-                var oldValue = (m.el.value || '').trim();
-                if (setValue(m.el, fill.value)) {
-                    claimed.push({ el: m.el, key: fill.key, label: fill.label, value: fill.value });
-                    var entry = { key: fill.key, label: fill.label, value: fill.value, fieldLabel: shortLabel };
-                    if (oldValue && oldValue !== fill.value) entry.oldValue = oldValue;
-                    report.filled.push(entry);
-                    if (!firstEl) firstEl = m.el;
-                } else {
-                    report.asks.push({ key: fill.key, question: fill.label + ' ke liye "' + fill.value + '" is dropdown me nahi mila. Options dekh ke dobara bolna.' });
+                if (!canSetValue(m.el, fill.value)) {
+                    plan.asks.push({ key: fill.key, label: fill.label, value: fill.value, question: fill.label + ' ke liye "' + fill.value + '" is dropdown me nahi mila. Options dekh ke dobara bolna.' });
+                    return;
                 }
+                claimed.push({ el: m.el, key: fill.key, label: fill.label, value: fill.value });
+                var oldValue = (m.el.value || '').trim();
+                plan.items.push({ status: 'write', el: m.el, key: fill.key, label: fill.label, value: fill.value, fieldLabel: shortLabel, oldValue: (oldValue && oldValue !== fill.value) ? oldValue : null });
+                plan.hasWrites = true;
             } else if (m && m.locked) {
-                report.locked.push({ key: fill.key, label: fill.label, value: fill.value });
+                plan.items.push({ status: 'locked', key: fill.key, label: fill.label, value: fill.value, fieldLabel: m.label.split('|')[0].trim() });
             } else {
-                report.notFound.push(fill);
+                plan.items.push({ status: 'notfound', key: fill.key, label: fill.label, value: fill.value });
+            }
+        });
+        return plan;
+    }
+
+    // Write an approved plan to the page. Returns the fill report.
+    function applyPlan(plan) {
+        var report = { filled: [], notFound: [], locked: [], asks: plan.asks.slice() };
+        var firstEl = null;
+        plan.items.forEach(function (it) {
+            if (it.status === 'write') {
+                if (setValue(it.el, it.value)) {
+                    var entry = { key: it.key, label: it.label, value: it.value, fieldLabel: it.fieldLabel };
+                    if (it.oldValue) entry.oldValue = it.oldValue;
+                    report.filled.push(entry);
+                    if (!firstEl) firstEl = it.el;
+                } else {
+                    report.asks.push({ key: it.key, label: it.label, value: it.value, question: it.label + ' ke liye "' + it.value + '" likhte waqt field ne mana kar diya. Khud likhna ya "Field chuno" use karna.' });
+                }
+            } else if (it.status === 'locked') {
+                report.locked.push(it);
+            } else {
+                report.notFound.push(it);
             }
         });
         if (firstEl && firstEl.scrollIntoView) firstEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
         return report;
+    }
+
+    // One-shot fill without preview (used by tests and the manual flow).
+    function fillFromTranscript(text, doc) {
+        return applyPlan(planFromTranscript(text, doc));
     }
 
     // Manual field binding: user clicks a field on the page for one pending value.
@@ -205,5 +250,5 @@
         return { ok: true, oldValue: oldValue };
     }
 
-    return { fillFromTranscript: fillFromTranscript, clearHighlights: clearHighlights, matchField: matchField, fillElement: fillElement };
+    return { fillFromTranscript: fillFromTranscript, planFromTranscript: planFromTranscript, applyPlan: applyPlan, clearHighlights: clearHighlights, matchField: matchField, fillElement: fillElement };
 });
