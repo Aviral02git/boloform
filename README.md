@@ -42,7 +42,7 @@ the point of speaking.
 6. BoloForm never submits anything. You review the highlighted fields and
    submit yourself.
 
-The panel header always shows the running version (e.g. `v0.2.2`) so a
+The panel header always shows the running version (e.g. `v0.2.3`) so a
 screenshot proves which build is loaded.
 ![One spoken sentence fills six fields, each highlighted](docs/vfh-panel-filled.png)
 
