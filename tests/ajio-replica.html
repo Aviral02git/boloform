@@ -92,9 +92,9 @@
   // ---- open the panel exactly like the toolbar click does ----
   window.dispatchEvent(new Event('vfh:toggle'));
   var hostEl = document.getElementById('vfh-host');
-  line(!!hostEl && !!hostEl.shadowRoot, 'panel injects while the drawer modal is open');
+  line(!!hostEl && !!window.__vfhShadow, 'panel injects while the drawer modal is open');
   if (!hostEl) { summary(); return; }
-  var sh = hostEl.shadowRoot;
+  var sh = window.__vfhShadow;
   line(hostEl.matches(':popover-open'), 'panel host is in the top layer (popover open)');
 
   var ta = sh.querySelector('textarea');
@@ -134,7 +134,7 @@
   dlg.showModal();
   window.dispatchEvent(new Event('vfh:toggle')); // reopen panel on top of native dialog
   hostEl = document.getElementById('vfh-host');
-  var sh2 = hostEl.shadowRoot;
+  var sh2 = window.__vfhShadow;
   var ta2 = sh2.querySelector('textarea');
   ta2.focus();
   line(document.activeElement === hostEl && sh2.activeElement === ta2,
