@@ -153,6 +153,8 @@
     }
 
     function validatePincode(v) {
+        var six = v.match(/\b\d{6}\b/);
+        if (six) return { ok: true, value: six[0] };
         var digits = v.replace(/\D/g, '');
         if (digits.length === 6) return { ok: true, value: digits };
         if (digits.length > 0) return { ok: false, question: 'PIN code 6 digits ka hota hai; "' + digits + '" adhura ya galat lag raha hai. Poora PIN bolna ya type karna - guess karke nahi bharenge.' };
@@ -217,10 +219,72 @@
 
     var CONTINUATION_KEYS = ['house', 'street', 'address'];
 
+    // Wispr often transcribes a dictated list as bulleted "- Key: value" lines.
+    var BULLET_KEYS = {
+        'name': 'name', 'full name': 'name', 'applicant name': 'name', 'naam': 'name',
+        'father': 'father', "father's name": 'father', 'father name': 'father',
+        'dob': 'dob', 'date of birth': 'dob', 'birth date': 'dob',
+        'gender': 'gender', 'sex': 'gender',
+        'address': 'address', 'house': 'house', 'house no': 'house', 'house number': 'house',
+        'flat': 'house', 'flat no': 'house', 'apartment': 'house',
+        'street': 'street', 'street area': 'street', 'area': 'street', 'locality': 'street',
+        'pin': 'pincode', 'pincode': 'pincode', 'pin code': 'pincode', 'zip': 'pincode',
+        'zip code': 'pincode', 'postal code': 'pincode',
+        'city': 'city', 'state': 'state',
+        'phone': 'phone', 'phone number': 'phone', 'mobile': 'phone',
+        'mobile number': 'phone', 'contact': 'phone', 'contact number': 'phone',
+        'email': 'email', 'e-mail': 'email', 'mail': 'email',
+        'occupation': 'occupation', 'income': 'income', 'annual income': 'income', 'purpose': 'purpose'
+    };
+
+    function lightClean(v) {
+        return v.replace(/\s+/g, ' ').replace(/^["'\s]+|[."'\s,]+$/g, '').trim();
+    }
+
+    // Split a transcript into bulleted key/value lines plus leftover raw lines.
+    function splitLines(text) {
+        return text.split(/\n+/).map(function (line) {
+            var m = line.match(/^\s*(?:[-•*–—]\s*)?([A-Za-z][A-Za-z &'/.\-]{0,29}?)\s*:\s+(\S[\s\S]*)$/);
+            if (!m) return { raw: line };
+            var k = BULLET_KEYS[m[1].toLowerCase().replace(/\s+/g, ' ').trim()];
+            if (!k) return { raw: line };
+            return { key: k, value: m[2], raw: line };
+        });
+    }
+
+    // Pull "PIN code ... 148001" out of an address clause so the digits never
+    // merge into house/street text.
+    var PIN_IN_CLAUSE = /\b(?:pin\s*code|pincode|zip(?:\s*code)?|postal\s*code|पिन(?:\s*कोड)?)\b[\s\S]{0,15}?(\d{6})\b/i;
+
     function parse(text) {
         var fills = [];
         var asks = [];
-        splitClauses(text).forEach(function (clause) {
+        var clauses = [];
+        splitLines(text).forEach(function (item) {
+            if (!item.key) {
+                splitClauses(item.raw).forEach(function (c) { clauses.push(c); });
+                return;
+            }
+            var value = lightClean(item.value);
+            if (!value) {
+                asks.push({ key: item.key, clause: item.raw, question: (FIELDS.find(function (f) { return f.key === item.key; }) || { label: item.key }).label + ' ke liye value nahi mili. Dobara bolna.' });
+                return;
+            }
+            var check = validate(item.key, value, item.raw);
+            if (check.ok) fills.push({ key: item.key, label: (FIELDS.find(function (f) { return f.key === item.key; }) || { label: item.key }).label, value: check.value });
+            else asks.push({ key: item.key, clause: item.raw, question: check.question });
+        });
+        clauses.forEach(function (clause) {
+            // A 6-digit PIN hiding inside a house/street/address clause becomes its own fill.
+            var pinM = clause.match(PIN_IN_CLAUSE);
+            if (pinM) {
+                var hit = findField(clause);
+                if (!hit || hit.field.key !== 'pincode') {
+                    fills.push({ key: 'pincode', label: 'PIN code', value: pinM[1] });
+                    clause = collapse((clause.slice(0, pinM.index) + ' ' + clause.slice(pinM.index + pinM[0].length)));
+                    if (!clause || clause.replace(/[\W_]+/g, '').length < 2) return;
+                }
+            }
             var r = parseClause(clause);
             if (r.fill) fills.push(r.fill);
             else if (r.ask) {
