@@ -6,7 +6,7 @@
     if (window.__vfhLoaded) return;
     window.__vfhLoaded = true;
 
-    var VFH_VERSION = '0.2.2';
+    var VFH_VERSION = '0.2.3';
     var host = null;
     var pendingPick = null;
 
