@@ -7,7 +7,7 @@
     window.__vfhLoaded = true;
 
     var VFH_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
-        ? chrome.runtime.getManifest().version : '0.3.0';
+        ? chrome.runtime.getManifest().version : '0.3.1';
     var host = null;
     var pendingPick = null;
     var panelShadow = null; // closed shadow: page scripts cannot read the transcript
