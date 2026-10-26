@@ -195,6 +195,15 @@
   var cancelBtn2 = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Cancel'; });
   if (cancelBtn2) cancelBtn2.click();
 
+  // double injection (toolbar clicked again) must not stack listeners
+  var s2 = document.createElement('script'); s2.src = '../content.js'; document.body.appendChild(s2);
+  var hostsBefore = document.querySelectorAll('#vfh-host').length;
+  window.dispatchEvent(new Event('vfh:toggle'));
+  var hostsAfter1 = document.querySelectorAll('#vfh-host').length;
+  window.dispatchEvent(new Event('vfh:toggle'));
+  var hostsAfter2 = document.querySelectorAll('#vfh-host').length;
+  line(hostsBefore === 1 && hostsAfter1 === 0 && hostsAfter2 === 1, 're-injected content script toggles cleanly (no stacked listeners): ' + hostsBefore + '->' + hostsAfter1 + '->' + hostsAfter2);
+
   summary();
 })();
 </script>
