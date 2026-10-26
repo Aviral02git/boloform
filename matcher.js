@@ -181,8 +181,13 @@
                 return;
             }
             if (!f.fillable) return;
-            if (!best || s > best.score) best = { el: f.el, score: s, text: f.text };
+            if (!best || s > best.score) best = { el: f.el, score: s, text: f.text, tied: false };
+            else if (best && s === best.score) best.tied = true;
         });
+        // Barabar score wale do alag fields = asli ambiguity. Chupke se pehla
+        // field bharna galat ho sakta hai (billing vs shipping "Name") - isliye
+        // notfound, jisse Field chuno se user khud field chune.
+        if (best && best.tied) return null;
         if (best) return { el: best.el, label: best.text };
         if (lockedMatch) return { locked: true, label: lockedMatch.text };
         return null;
