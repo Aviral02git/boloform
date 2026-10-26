@@ -204,8 +204,11 @@
         if (!m) return { ok: false, question: 'Date of birth ka format clear nahi hua. DD/MM/YYYY me bolna, jaise 21/11/2001.' };
         var d = m[1].padStart(2, '0');
         var mo = m[2].padStart(2, '0');
-        // 2-digit year: 00-25 -> 2000s (kabhi bhi 1901 jaisa silent guess nahi).
-        var y = m[3].length === 2 ? (parseInt(m[3], 10) <= 25 ? '20' + m[3] : '19' + m[3]) : m[3];
+        // 2-digit year: century KABHI guess nahi karte - poora saal poochte hain.
+        if (m[3].length === 2) {
+            return { ok: false, question: 'Saal sirf 2 digits me aaya ("' + m[3] + '"). Poora 4-digit saal bolna, jaise 21/11/2001 - century guess karke nahi bharenge.' };
+        }
+        var y = m[3];
         var dd = parseInt(d, 10), mm = parseInt(mo, 10), yy = parseInt(y, 10);
         var dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         if (mm === 2 && ((yy % 4 === 0 && yy % 100 !== 0) || yy % 400 === 0)) dim[1] = 29;
