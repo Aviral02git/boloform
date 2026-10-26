@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>v0.3.0 stress replica (dummy data)</title>
+<style>
+  body{font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;background:#f7f6f5;margin:24px;color:#222}
+  .card{background:#fff;border:1px solid #e3e0de;border-radius:12px;padding:20px;max-width:460px;margin-bottom:16px}
+  .card h2{margin:0 0 10px;font-size:15px}
+  label{display:block;font-size:12px;color:#666;margin:10px 0 4px}
+  input,select,textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #c9c5c3;border-radius:8px;font-size:14px;background:#fff}
+  #results{max-width:520px;font-size:13px}
+  #results .pass{color:#2f7a67}#results .fail{color:#b3261e;font-weight:600}
+  #results div{padding:2px 0}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Duplicate identical labels (ambiguity)</h2>
+  <label for="dup1">Name</label><input id="dup1" type="text">
+  <label for="dup2">Name</label><input id="dup2" type="text">
+</div>
+
+<div class="card">
+  <h2>Select with no matching option</h2>
+  <label for="ctry">Country</label>
+  <select id="ctry"><option value="">Select</option><option value="us">United States</option><option value="ca">Canada</option></select>
+</div>
+
+<div class="card">
+  <h2>Textarea address</h2>
+  <label for="addr">Address</label>
+  <textarea id="addr" rows="2"></textarea>
+</div>
+
+<div class="card">
+  <h2>Field trapped in an iframe (must not be reached)</h2>
+  <iframe id="if1" srcdoc="<label>Father's name <input type='text'></label>" style="width:100%;height:60px;border:1px solid #ccc"></iframe>
+</div>
+
+<div class="card">
+  <h2>Final-action form (Submit + Place order only)</h2>
+  <form id="finalForm" onsubmit="window.__submitted=true;return false">
+    <label for="appname">Applicant full name</label><input id="appname" type="text">
+    <label for="rof">Referral code</label><input id="rof" type="text" readonly value="LOCKED-1">
+    <input id="trap" type="text" placeholder="focus trap target">
+    <button type="submit" id="subBtn">Submit</button>
+    <button type="button">Place order</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>250-field form (perf)</h2>
+  <div id="bigform"></div>
+</div>
+
+<div id="results"></div>
+
+<script src="../parser.js"></script>
+<script src="../matcher.js"></script>
+<script src="../content.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('results');
+  var pass = 0, fail = 0;
+  function line(ok, name) {
+    var d = document.createElement('div');
+    d.className = ok ? 'pass' : 'fail';
+    d.textContent = (ok ? 'PASS: ' : 'FAIL: ') + name;
+    out.appendChild(d);
+    ok ? pass++ : fail++;
+  }
+  function summary() {
+    var sum = document.createElement('div');
+    sum.className = fail ? 'fail' : 'pass';
+    sum.style.marginTop = '10px'; sum.style.fontWeight = '700';
+    sum.textContent = 'DOM TEST: ' + pass + ' passed, ' + fail + ' failed';
+    out.appendChild(sum);
+    document.title = fail ? 'FAIL' : 'PASS';
+  }
+  function byId(id) { return document.getElementById(id); }
+  function setAndInput(el, v) { el.focus(); document.execCommand('insertText', false, v); }
+
+  // build the 250-field form
+  var bf = byId('bigform');
+  for (var i = 1; i <= 250; i++) {
+    var l = document.createElement('label'); l.textContent = 'Field ' + i;
+    var inp = document.createElement('input'); inp.type = 'text'; inp.id = 'bf' + i;
+    bf.appendChild(l); bf.appendChild(inp);
+  }
+  var ll = document.createElement('label'); ll.textContent = 'Landmark';
+  var li = document.createElement('input'); li.type = 'text'; li.id = 'bfland';
+  bf.appendChild(ll); bf.appendChild(li);
+
+  // ---- matcher-level stress ----
+  var planDup = window.VFHMatcher.planFromTranscript('name Rahul Sharma', document);
+  var dupItem = planDup.items.find(function (i) { return i.key === 'name'; });
+  line(dupItem && dupItem.status !== 'write', 'two identical "Name" labels -> asks/Field-chuno instead of guessing one');
+  line(byId('dup1').value === '' && byId('dup2').value === '', 'duplicate-label ambiguity wrote nothing');
+
+  var planSel = window.VFHMatcher.planFromTranscript('country India', document);
+  var selWrite = planSel.items.find(function (i) { return i.key === 'country' && i.status === 'write'; });
+  line(!selWrite && planSel.asks.some(function (a) { return a.key === 'country'; }), 'select without the spoken option -> asks, no write');
+  window.VFHMatcher.applyPlan(planSel);
+  line(byId('ctry').value === '', 'select left untouched when option missing');
+
+  var planTa = window.VFHMatcher.planFromTranscript('address 12 MG Road, near City Hospital', document);
+  window.VFHMatcher.applyPlan(planTa);
+  line(byId('addr').value === '12 MG Road, near City Hospital', 'textarea fills, near-phrase continues the address');
+  line(!planTa.items.some(function (i) { return i.key === 'city'; }), 'no mangled "near Hospital" city fill');
+
+  var planIf = window.VFHMatcher.planFromTranscript("father name Suresh Sharma", document);
+  var ifItem = planIf.items.find(function (i) { return i.key === 'father'; });
+  line(ifItem && ifItem.status !== 'write', 'iframe-trapped field is not matched (no cross-frame reach)');
+
+  var t0 = Date.now();
+  var planBig = window.VFHMatcher.planFromTranscript('landmark near City Hospital', document);
+  var ms = Date.now() - t0;
+  line(ms < 3000, '250-field form plans in ' + ms + 'ms (< 3000)');
+  window.VFHMatcher.applyPlan(planBig);
+  line(byId('bfland').value === 'near City Hospital', 'landmark found in the 250-field form');
+
+  // free the name key for the panel section: the duplicate test is done
+  byId('dup1').disabled = true; byId('dup2').disabled = true;
+
+  // hostile focus trap: the page tries to steal every focus back
+  document.addEventListener('focusin', function (ev) {
+    if (ev.target && ev.target.closest && ev.target.closest('#vfh-host')) return; // shielded anyway; trap only page focus
+    byId('trap').focus();
+  });
+
+  // ---- panel-level stress ----
+  window.dispatchEvent(new Event('vfh:toggle'));
+  var sh = window.__vfhShadow;
+  line(!!sh, 'panel opened (closed shadow handle)');
+  var ta = sh.querySelector('textarea');
+  var fillBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Form bharo'; });
+
+  // voice command with NO preview open -> treated as transcript, nothing applied
+  setAndInput(ta, 'sahi hai');
+  line(byId('appname').value === '', '"sahi hai" with no preview applies nothing');
+  line(ta.value === 'sahi hai', 'command words stay as transcript when no preview is open');
+  ta.value = '';
+
+  // focus trap vs panel typing
+  setAndInput(ta, 'name me Rahul Sharma bhar do');
+  line(ta.value === 'name me Rahul Sharma bhar do', 'panel textarea types despite the page focus trap');
+  fillBtn.click();
+  var confirmBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Sahi hai, bharo'; });
+  line(!!confirmBtn, 'preview shown for applicant name');
+  confirmBtn.click();
+  line(byId('appname').value === 'Rahul Sharma', 'applicant name filled through the panel');
+  line(!window.__submitted, 'applying a plan NEVER submits the form');
+  var offer = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent.indexOf('Agla step') !== -1; });
+  line(!offer, 'no Agla step offered when only Submit / Place order exist');
+
+  // undo twice: second click is a safe no-op
+  var undoBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent.indexOf('Sab wapas karo') !== -1; });
+  line(!!undoBtn, 'undo button offered');
+  undoBtn.click();
+  line(byId('appname').value === '', 'first undo restores the empty value');
+  var threw = false;
+  try { undoBtn.click(); } catch (e) { threw = true; }
+  line(!threw && byId('appname').value === '', 'second undo click is a safe no-op');
+
+  // conflicting duplicate values in one transcript -> ask, not silent pick
+  ta.value = '';
+  setAndInput(ta, '- Name: Rahul Sharma\n- Name: Rohit Verma');
+  fillBtn.click();
+  var conflictRow = Array.prototype.find.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('do alag values') !== -1; });
+  line(!!conflictRow, 'two different values for one field -> asks instead of overwriting');
+  line(byId('appname').value === '', 'conflict wrote nothing yet');
+  var cancelBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Cancel'; });
+  cancelBtn.click();
+
+  // Field chuno onto a readonly field -> refused with a warning, value kept
+  ta.value = '';
+  setAndInput(ta, 'occupation Teacher');
+  fillBtn.click();
+  var pickBtn = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Field chuno'; });
+  line(!!pickBtn, 'Field chuno offered for unmatched value');
+  pickBtn.click();
+  byId('rof').click();
+  var warnRow = Array.prototype.find.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('Kuch nahi badla') !== -1; });
+  line(!!warnRow, 'manual pick onto a readonly field is refused with a warning');
+  line(byId('rof').value === 'LOCKED-1', 'readonly field kept its value');
+
+  // very long transcript -> preview still renders
+  ta.value = '';
+  setAndInput(ta, 'gali number 5 Model Town, '.repeat(150) + 'landmark near City Hospital');
+  fillBtn.click();
+  line(!!sh.querySelector('.vfh-results'), 'long transcript preview renders without crashing');
+  line(Array.prototype.some.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('near City Hospital') !== -1; }), 'the real value survives a noisy 3000-char transcript');
+  var cancelBtn2 = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Cancel'; });
+  if (cancelBtn2) cancelBtn2.click();
+
+  summary();
+})();
+</script>
+</body>
+</html>
