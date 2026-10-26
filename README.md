@@ -128,7 +128,8 @@ will be reported as locked.
 
 Verified:
 
-- 111 parser checks (`node tests/parser.test.js` + `node tests/parser-stress.test.js`)
+- 116 parser checks (`node tests/parser.test.js` + `node tests/parser-stress.test.js`)
+  plus 11 background-glue and manifest checks (`node tests/background.test.js`),
   covering narration,
   directed commands, corrections, address splitting, incomplete values,
   Devanagari input, dates, emails, phone/PIN validation, plus regressions
@@ -159,7 +160,7 @@ Verified:
     command words inside narration never apply, transcript edits invalidate
     a stale preview, ambiguous or final-action buttons are never offered,
     and undo never clobbers a field the user edited after the fill.
-  - `tests/stress-replica.html` (27 checks): hostile shapes - duplicate
+  - `tests/stress-replica.html` (28 checks): hostile shapes - duplicate
     identical labels (asks instead of guessing), a select missing the spoken
     option, iframe-trapped fields, a 250-field form (plan stays fast),
     a focus-stealing page, readonly manual picks, double-undo, conflicting
