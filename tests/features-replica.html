@@ -179,7 +179,7 @@
   line(!!hostEl && hostEl.shadowRoot === null && !!window.__vfhShadow, 'closed shadow root: page scripts cannot read the transcript');
   var sh = window.__vfhShadow;
   var title = sh.querySelector('.vfh-title');
-  line(title && title.textContent.indexOf('BoloForm') !== -1 && /v0\.3\.0/.test(title.textContent), 'panel branded BoloForm v0.3.0: "' + title.textContent + '"');
+  line(title && title.textContent.indexOf('BoloForm') !== -1 && /v0\.3\.1/.test(title.textContent), 'panel branded BoloForm v0.3.1: "' + title.textContent + '"');
   var ta = sh.querySelector('textarea');
 
   byId('s1name').value = 'Purana Naam';
