@@ -159,7 +159,11 @@
         var best = 0;
         // An alias matching one whole label part ("name" == "name") beats a
         // substring inside a longer part ("name" inside "apartment name").
-        var parts = f.text.split('|').map(function (p) { return p.trim(); });
+        // Google Forms & co. hang a required-marker " *" on the visible label
+        // ("Name *"). Without stripping it, the exact-part boost never fires
+        // and "Name *" merely word-ties with "University Name" - a false
+        // ambiguity on the most basic field of any form.
+        var parts = f.text.split('|').map(function (p) { return p.trim().replace(/[\s*]+$/, '').trim(); });
         field.aliases.forEach(function (a) {
             var al = a.toLowerCase();
             for (var p = 0; p < parts.length; p++) {
