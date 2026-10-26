@@ -23,6 +23,12 @@
 </div>
 
 <div class="card">
+  <h2>Required-asterisk labels (Google Forms style)</h2>
+  <div role="listitem"><div role="heading">City&nbsp;*</div><input id="gfc" type="text" aria-labelledby="gfch"><span id="gfch">City *</span></div>
+  <div role="listitem"><div role="heading">City or Town</div><input id="gft" type="text" aria-labelledby="gfth"><span id="gfth">City or Town</span></div>
+</div>
+
+<div class="card">
   <h2>Select with no matching option</h2>
   <label for="ctry">Country</label>
   <select id="ctry"><option value="">Select</option><option value="us">United States</option><option value="ca">Canada</option></select>
@@ -185,6 +191,15 @@
   var warnRow = Array.prototype.find.call(sh.querySelectorAll('.vfh-results div'), function (d) { return d.textContent.indexOf('Kuch nahi badla') !== -1; });
   line(!!warnRow, 'manual pick onto a readonly field is refused with a warning');
   line(byId('rof').value === 'LOCKED-1', 'readonly field kept its value');
+
+  // Google Forms style "City *" vs "City or Town": exact label must win, not tie
+  var planGf = window.VFHMatcher.planFromTranscript('city Rampur', document);
+  var gfItem = planGf.items.find(function (i) { return i.key === 'city'; });
+  line(!!gfItem && gfItem.status === 'write', '"City *" is a write, not a false tie with "City or Town"');
+  window.VFHMatcher.applyPlan(planGf);
+  line(byId('gfc').value === 'Rampur' && byId('gft').value === '', 'the dictated city lands on "City *" only');
+  var undoGf = Array.prototype.find.call(sh.querySelectorAll('button'), function (b) { return b.textContent === 'Undo'; });
+  if (undoGf) undoGf.click();
 
   // very long transcript -> preview still renders
   ta.value = '';
