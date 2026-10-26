@@ -188,12 +188,15 @@
         var digits = v.replace(/\D/g, '');
         if (digits.length === 10) return { ok: true, value: digits };
         if (digits.length === 12 && digits.indexOf('91') === 0) return { ok: true, value: digits.slice(2) };
+        if (digits.length === 11 && digits.indexOf('0') === 0) return { ok: true, value: digits.slice(1) };
         if (digits.length > 0) return { ok: false, question: 'Phone number adhura lag raha hai ("' + digits + '" - sirf ' + digits.length + ' digits). Poora 10-digit number bolna ya type karna.' };
         return { ok: false, question: 'Phone number nahi mila. 10-digit number bolna ya type karna.' };
     }
 
     function validateDob(v, rawClause) {
-        var m = v.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+        // ISO first: "2001-11-21" must not be read as day 01, year 1921.
+        var iso = v.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+        var m = iso ? [iso[0], iso[3], iso[2], iso[1]] : v.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
         if (!m && rawClause) {
             var rm = rawClause.toLowerCase().match(/(\d{1,2})\s*([a-z\u0900-\u097F]+)\s*(\d{4})/);
             if (rm && MONTHS[rm[2]]) m = [rm[0], rm[1], String(MONTHS[rm[2]]), rm[3]];
@@ -201,9 +204,12 @@
         if (!m) return { ok: false, question: 'Date of birth ka format clear nahi hua. DD/MM/YYYY me bolna, jaise 21/11/2001.' };
         var d = m[1].padStart(2, '0');
         var mo = m[2].padStart(2, '0');
-        var y = m[3].length === 2 ? '19' + m[3] : m[3];
+        // 2-digit year: 00-25 -> 2000s (kabhi bhi 1901 jaisa silent guess nahi).
+        var y = m[3].length === 2 ? (parseInt(m[3], 10) <= 25 ? '20' + m[3] : '19' + m[3]) : m[3];
         var dd = parseInt(d, 10), mm = parseInt(mo, 10), yy = parseInt(y, 10);
-        if (dd < 1 || dd > 31 || mm < 1 || mm > 12 || yy < 1900 || yy > 2100) {
+        var dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        if (mm === 2 && ((yy % 4 === 0 && yy % 100 !== 0) || yy % 400 === 0)) dim[1] = 29;
+        if (dd < 1 || mm < 1 || mm > 12 || yy < 1900 || yy > 2100 || (mm >= 1 && mm <= 12 && dd > dim[mm - 1])) {
             return { ok: false, question: 'Ye date valid nahi lagti ("' + d + '/' + mo + '/' + y + '"). Dobara bolna, DD/MM/YYYY me.' };
         }
         return { ok: true, value: d + '/' + mo + '/' + y };
@@ -279,6 +285,20 @@
             }
         }
         var hit = findField(clause);
+        // A field word mid-clause is a label only when what precedes it is
+        // possessive filler ("mera naam Rahul"). "near City Hospital" me "City"
+        // label nahi - value ka hissa hai; warna city = "near Hospital" jaisa
+        // galat fill banta hai.
+        if (hit && hit.idx > 0) {
+            // A field word right after a preposition is value content, not a
+            // label: "near City Hospital" ka "City" city nahi hai. Without this
+            // guard the alias hijacked the phrase into city = "near Hospital".
+            var PREP = ['near', 'behind', 'opposite', 'beside', 'next', 'to', 'paas', 'pas', 'samne', 'bagal', 'andher',
+                '\u092a\u093e\u0938', '\u0938\u093e\u092e\u0928\u0947', '\u092c\u0917\u0932', '\u092a\u0940\u091b\u0947'];
+            var preWords = clause.slice(0, hit.idx).toLowerCase().replace(/[-\u2022*\u2013\u2014"':\s]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+            var lastPre = preWords.length ? preWords[preWords.length - 1] : '';
+            if (PREP.indexOf(lastPre) !== -1) hit = null;
+        }
         if (!hit) {
             // Bare-number shortcuts: a standalone 6-digit reads as PIN, 10-digit as phone.
             var bare = clause.replace(/[.\s-]/g, '');
