@@ -128,7 +128,8 @@ will be reported as locked.
 
 Verified:
 
-- 74 parser unit tests (`node tests/parser.test.js`) covering narration,
+- 111 parser checks (`node tests/parser.test.js` + `node tests/parser-stress.test.js`)
+  covering narration,
   directed commands, corrections, address splitting, incomplete values,
   Devanagari input, dates, emails, phone/PIN validation, plus regressions
   from real-site tests: Wispr bullet-style transcripts ("- Key: value" and
@@ -138,7 +139,7 @@ Verified:
   separators exactly as dictated ("2A/45", "2A-45"), and composite or
   disfluent dictated labels ("house flat number/apartment number: 2A-45")
   leaving only the identifier in the value.
-- Four headless-Chrome DOM suites that run the real panel, parser and
+- Five headless-Chrome DOM suites that run the real panel, parser and
   matcher against replicas of real pages (locally served, dummy data, not
   the live sites):
   - `tests/snitch-replica.html` (30 checks): a shopping site's add-address
@@ -150,11 +151,20 @@ Verified:
   - `tests/ajio-replica.html` (13 checks): a fashion store's modal address
     dialog - the panel mounts inside the top-layer dialog and page clicks
     cannot dismiss it.
-  - `tests/features-replica.html` (32 checks): the v0.3.0 feature set -
+  - `tests/features-replica.html` (42 checks): the v0.3.x feature set -
     React-style value rejection, radio groups, date conversion, dropdown
     precision ("male" never picks "Female"), autocomplete-only forms,
     Google-Forms-style floating question text, spoken confirm/cancel/undo,
-    the Agla step flow, and the closed shadow panel.
+    the Agla step flow, the closed shadow panel, and the safety edges:
+    command words inside narration never apply, transcript edits invalidate
+    a stale preview, ambiguous or final-action buttons are never offered,
+    and undo never clobbers a field the user edited after the fill.
+  - `tests/stress-replica.html` (27 checks): hostile shapes - duplicate
+    identical labels (asks instead of guessing), a select missing the spoken
+    option, iframe-trapped fields, a 250-field form (plan stays fast),
+    a focus-stealing page, readonly manual picks, double-undo, conflicting
+    duplicate values, and a form whose only buttons are Submit/Place order
+    (never clicked, never offered).
 
 Not yet verified:
 
