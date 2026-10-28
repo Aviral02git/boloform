@@ -31,11 +31,11 @@ the point of speaking.
    **preview of the mapping** - which detail goes into which field,
    including any value a fill would replace. Nothing is written yet.
 4. Confirm the preview - by clicking **Sahi hai, bharo** or by simply
-   *saying* "sahi hai", "theek hai", "OK" or "done" into the same box.
-   "Cancel", "mat karo" or "nahi" discards the preview and keeps your
+   dictating or typing "sahi hai", "theek hai", "OK" or "done" into the same box, **then pressing Enter**.
+   "Cancel", "mat karo" or "nahi" followed by Enter discards the preview and keeps your
    transcript. Spoken filler around the command is ignored.
 5. Filled fields are highlighted; replaced fields show their previous value
-   in the panel. Made a mistake? Click **Undo** or say "wapas" to restore
+   in the panel. Made a mistake? Click **Undo** or say "wapas" and press Enter to restore
    the values from before the fill.
 6. If something is incomplete or ambiguous (a 2-digit PIN, a 2-digit phone
    number), the panel asks instead of guessing. Locked/readonly fields (like
@@ -48,7 +48,7 @@ the point of speaking.
 7. BoloForm never submits anything. You review the highlighted fields and
    submit yourself.
 
-The panel header always shows the running version (e.g. `v0.3.0`) so a
+The panel header always shows the running version (e.g. `v0.3.2`) so a
 screenshot proves which build is loaded.
 
 ![One spoken sentence fills six fields, each highlighted](docs/vfh-panel-filled.png)
@@ -60,7 +60,7 @@ screenshot proves which build is loaded.
 Shopping checkouts and government forms split across several screens. After
 a step is filled, the panel looks for the site's own **Next / Continue /
 Proceed** button and offers an **Agla step dabao** button. Nothing advances
-until you press it. Saying "agla" simply clears the capture box so you can
+until you press it. Saying "agla" and pressing Enter simply clears the capture box so you can
 dictate the next step's details.
 
 The step button only ever matches navigation words (next, continue, proceed,
@@ -200,3 +200,13 @@ Wispr Flow's desktop dictation types wherever your cursor is, in 100+
 languages. BoloForm treats that as its voice engine: Wispr handles hearing
 and transcribing; BoloForm handles understanding which field each detail
 belongs to. No developer API or enterprise approval is needed.
+
+## v0.3.2 command-stream safety fix
+
+Typing or dictation alone never executes confirm, cancel, undo or next commands.
+A deliberate Enter key (not Shift+Enter, composition, or repeat) or the existing
+visible button is required. A pause is not treated as an end-of-speech signal:
+slow text such as "sahi hai kya" cannot briefly match a prefix and fill early.
+Auto-preview can still show a mapping after a pause, but does not write fields.
+This is a deliberate interaction change from v0.3.1, not a timed debounce.
+Real Wispr dictation still needs a local-machine retest.
