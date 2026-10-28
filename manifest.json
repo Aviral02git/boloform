@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BoloForm (Wispr voice form filling)",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Wispr se boli hui details ko khule form ke sahi fields me bharta hai. Kuch submit nahi karta.",
   "permissions": [
     "activeTab",
