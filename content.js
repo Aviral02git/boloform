@@ -7,7 +7,7 @@
     window.__vfhLoaded = true;
 
     var VFH_VERSION = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
-        ? chrome.runtime.getManifest().version : '0.3.1';
+        ? chrome.runtime.getManifest().version : '0.3.2';
     var host = null;
     var pendingPick = null;
     var panelShadow = null; // closed shadow: page scripts cannot read the transcript
@@ -207,7 +207,7 @@
         panel.appendChild(head);
 
         panel.appendChild(el('p', 'vfh-hint',
-            'Box pe click karo, Wispr ka button (Fn / Ctrl+Win) dabaa ke bolo - ek se zyada fields, kisi bhi order me. Ya type karo. Preview ke baad "sahi hai" bolo ya button dabao; "cancel", "wapas" (undo), "agla" (next step) bhi samajhta hai.'));
+            'Box pe click karo, Wispr ka button (Fn / Ctrl+Win) dabaa ke bolo - ek se zyada fields, kisi bhi order me. Ya type karo. Preview ke baad "sahi hai" likho/bolo, phir Enter dabao ya confirm button dabao. Commands khud se apply nahi hote. "cancel", "wapas" (undo), "agla" (next step) bhi Enter ke baad.'));
 
         var ta = document.createElement('textarea');
         ta.setAttribute('placeholder', 'Jaise: "name field me Rahul Sharma bhar do, janm tithi 21/11/2001, phone 9876543210"');
@@ -343,14 +343,12 @@
                 if (!ta.value.startsWith(previewSnapshot)) { invalidatePreview(); return; } // beech ka text badla
                 var cmd = normCmd(ta.value.slice(previewSnapshot.length));
                 if (!cmd) return;
-                if (YES_RE.test(cmd)) { doConfirm(); return; }
-                if (NO_RE.test(cmd)) { doCancel(); return; }
+                if (YES_RE.test(cmd) || NO_RE.test(cmd)) return; // ready only; Enter/button is the explicit boundary
                 if (isCmdPrefix(cmd)) return; // utterance abhi aadhi hai, wait
                 invalidatePreview(); // naya narration aaya - purana plan stale
             } else if (!currentPlan) {
                 var whole = normCmd(ta.value);
-                if (UNDO_RE.test(whole) && lastUndo && lastUndo.length) { doUndo(); return; }
-                if (NEXT_RE.test(whole)) { ta.value = ''; ta.focus(); return; }
+                if (UNDO_RE.test(whole) || NEXT_RE.test(whole)) return; // wait for explicit Enter
                 if (autoChk && autoChk.checked && ta.value.trim()) {
                     clearTimeout(autoTimer);
                     autoTimer = setTimeout(function () {
@@ -360,8 +358,28 @@
             }
         });
 
+        // Input timing is not an utterance boundary. Even a long pause can be
+        // followed by more words. Only a deliberate Enter or visible button may
+        // commit a command; IME composition and repeated keys never commit it.
+        ta.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Enter' || ev.shiftKey || ev.ctrlKey || ev.altKey || ev.metaKey || ev.isComposing || ev.repeat) return;
+            ev.preventDefault();
+            clearTimeout(autoTimer);
+            if (currentPlan && previewSnapshot !== null) {
+                if (!ta.value.startsWith(previewSnapshot)) { invalidatePreview(); return; }
+                var cmd = normCmd(ta.value.slice(previewSnapshot.length));
+                if (YES_RE.test(cmd)) { doConfirm(); return; }
+                if (NO_RE.test(cmd)) { doCancel(); return; }
+                if (cmd) invalidatePreview();
+            } else {
+                var whole = normCmd(ta.value);
+                if (UNDO_RE.test(whole) && lastUndo && lastUndo.length) { doUndo(); return; }
+                if (NEXT_RE.test(whole)) { ta.value = ''; ta.focus(); }
+            }
+        });
+
         // Auto preview toggle: 1.5s kuch na bolo to plan apne aap (writes phir bhi
-        // sirf "sahi hai" / button ke baad).
+        // sirf "sahi hai" + Enter / button ke baad).
         var autoRow = el('label', 'vfh-old', '');
         autoRow.style.display = 'block';
         autoRow.style.marginTop = '8px';
